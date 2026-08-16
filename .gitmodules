@@ -1,0 +1,3 @@
+[submodule "ZMK"]
+	path = ZMK
+	url = https://github.com/voltaire-toledo/Keychron-B1-Pro-Custom-Keymap.git
