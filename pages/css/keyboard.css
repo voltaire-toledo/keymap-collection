@@ -1,0 +1,159 @@
+/* ---------- SVG Keycap Styling & States ---------- */
+.key .key-cover {
+  fill: #e4e1db;
+  stroke: #2f2d29;
+  stroke-width: 0.5;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.18)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.12));
+  transition: fill 0.12s ease, stroke 0.12s ease, stroke-width 0.12s ease;
+}
+
+.key.inert .key-cover {
+  fill: var(--key-cover-inert);
+  stroke: var(--border-strong);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 2;
+  opacity: 0.75;
+  cursor: default;
+  filter: none;
+}
+
+html[data-colorway="retro-red"] .esc-ent-group:not(:hover):not(.selected) .key-cover {
+  fill: #93162a;
+}
+html[data-colorway="retro-red"] .esc-ent-group:not(:hover):not(.selected) .key-tap {
+  fill: #e4e1db;
+}
+
+.utility-group .key-cover {
+  fill: #c2c0b1;
+}
+
+html[data-colorway="retro-blue"] .utility-group:not(:hover):not(.selected) .key-cover,
+html[data-colorway="retro-blue"] .esc-ent-group:not(:hover):not(.selected) .key-cover {
+  fill: #9ca4b2;
+}
+
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-cover {
+  fill: #454643;
+}
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-tap,
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-shift,
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-trans {
+  fill: #ffffff;
+}
+
+html[data-colorway="ivory-white"] .key:not(:hover):not(.selected) .key-cover {
+  fill: #f6f6f6;
+}
+
+.key:hover .key-cover,
+.key.selected .key-cover {
+  fill: #1d1d1f;
+  stroke: #1d1d1f;
+}
+
+.key.selected .key-cover {
+  stroke: #1f83d2;
+  stroke-width: 1.7;
+}
+
+.key-tap {
+  fill: #1d1d1f;
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  transition: fill 0.12s ease;
+}
+
+.key-hold {
+  fill: #3f7a1f;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  transition: fill 0.12s ease;
+}
+
+.key-shift {
+  fill: #6e6e73;
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.key-trans {
+  fill: #8e8e93;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.key:hover .key-tap,
+.key:hover .key-hold,
+.key:hover .key-shift,
+.key:hover .key-trans,
+.key.selected .key-tap,
+.key.selected .key-hold,
+.key.selected .key-shift,
+.key.selected .key-trans {
+  fill: #ffffff;
+}
+
+.key-icon {
+  pointer-events: none;
+  transition: fill 0.12s ease;
+}
+.key-icon path,
+.key-icon circle,
+.key-icon rect {
+  fill: #1d1d1f;
+  transition: fill 0.12s ease;
+}
+.key:hover .key-icon path,
+.key:hover .key-icon circle,
+.key:hover .key-icon rect,
+.key.selected .key-icon path,
+.key.selected .key-icon circle,
+.key.selected .key-icon rect {
+  fill: #ffffff;
+}
+
+/* ---------- Legend Footer ---------- */
+footer.legend {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+footer.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+footer.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+  background: var(--key-cover);
+  border: 1px solid var(--border-strong);
+}
+footer.legend i.hold {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+footer.legend i.inert {
+  background: var(--key-cover-inert);
+  border: 1px dashed var(--border-strong);
+  opacity: 0.75;
+}

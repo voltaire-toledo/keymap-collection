@@ -1,0 +1,249 @@
+;; clean.kbd
+;; Merged from: kanata.kbd (base structure, nav layer, fn/bypass layers)
+;;              ldebritto-urob.kbd (lhrm/rhrm/nomod templates, @tap RPI emulation, num/sym layers)
+;; Target: macOS, full 65+ keyboard (internal + Keychron V1 Max via macos-dev-names-exclude)
+
+(defcfg
+  process-unmapped-keys yes
+  block-unmapped-keys no
+  log-layer-changes no
+  concurrent-tap-hold yes
+  delegate-to-first-layer yes
+  chords-v2-min-idle 350
+  macos-dev-names-exclude (
+    "Keychron V1 Max"
+  )
+)
+
+(defvar
+  tapping-term       300    ;; hold timeout for HRM keys
+  quick-tap-ms       200    ;; tap-repress timeout (ZMK tap-repress-timeout)
+  require-prior-idle 250    ;; idle window before HRM hold is allowed (ZMK require-prior-idle)
+  combo-timeout      60     ;; chord activation window
+
+  ;; Keys used for bilateral disambiguation in tap-hold-release-tap-keys-release.
+  ;; Pressing a key from the opposite side while holding an HRM immediately outputs a tap.
+  left-hand-keys  (grv 1 2 3 4 5 tab q w e r t g z x c v b)
+  right-hand-keys (6 7 8 9 0 - = bspc y u i o p [ ] \ scln ' ret n m , . /)
+
+  ;; Keys used for same-side rolling disambiguation (release trigger).
+  ;; Releasing one of these while holding an HRM on the same hand outputs a tap.
+  home-row-left-keys  (a s d f)
+  home-row-right-keys (j k l scln ')
+)
+
+;; urob timeless home row mod templates
+(deftemplate lhrm (tappingterm tap-key hold-key)
+  (tap-hold-release-tap-keys-release $quick-tap-ms $tappingterm
+    (multi $tap-key @tap) $hold-key
+    $right-hand-keys $home-row-left-keys)
+)
+
+(deftemplate rhrm (tappingterm tap-key hold-key)
+  (tap-hold-release-tap-keys-release $quick-tap-ms $tappingterm
+    (multi $tap-key @tap) $hold-key
+    $left-hand-keys $home-row-right-keys)
+)
+
+(deftemplate nomod (tap-key)
+  (multi $tap-key @tap)
+)
+
+(defvirtualkeys
+  to-base (layer-switch base)  ;; used by @tap to return from nomods layer after idle
+)
+
+(defalias
+  ;; require-prior-idle emulation (from ldebritto-urob):
+  ;; Each keypress briefly switches to `nomods` (no HRM keys), then
+  ;; on-idle fires after $require-prior-idle ms of inactivity to return to base.
+  ;; This prevents HRM hold from triggering during fast sequential typing.
+  tap (multi
+    (layer-switch nomods)
+    (on-idle $require-prior-idle tap-virtualkey to-base)
+  )
+
+  ;; --- Caps Lock: tap=Esc, hold=Hyper ---
+  caps_mod (tap-hold 200 150 esc (multi lctl lalt lmet lsft))
+
+  ;; --- Spacebar: tap=space, hold=nav layer ---
+  spc_nav (tap-hold 175 175 spc (layer-toggle nav))
+
+  ;; --- Tab: tap=tab, hold=num layer ---
+  tab_num (tap-hold-release $quick-tap-ms $tapping-term tab (layer-while-held num))
+
+  ;; --- Right Meta: tap=rmet, hold=sym layer ---
+  rmet_sym (tap-hold-release $quick-tap-ms $tapping-term rmet (layer-while-held sym))
+
+  ;; --- Home Row Mods (left hand): Ctrl / Cmd / Alt / Shift ---
+  a_mod   (t! lhrm $tapping-term a    lctl)
+  s_mod   (t! lhrm $tapping-term s    lmet)
+  d_mod   (t! lhrm $tapping-term d    lalt)
+  f_mod   (t! lhrm $tapping-term f    lsft)
+
+  ;; --- Home Row Mods (right hand): Shift / Alt / Cmd / Ctrl ---
+  j_mod   (t! rhrm $tapping-term j    rsft)
+  k_mod   (t! rhrm $tapping-term k    ralt)
+  l_mod   (t! rhrm $tapping-term l    lmet)
+  sem_mod (t! rhrm $tapping-term scln rctl)
+
+  ;; --- Z: nomod-wrapped (used inside zfn) ---
+  z (t! nomod z)
+
+  ;; --- zfn: tap=z, hold=fn-base layer (secondary fn access from home area) ---
+  zfn (t! lhrm $tapping-term @z (layer-while-held fn-base))
+
+  ;; --- nomod-wrapped alpha keys (require-prior-idle behavior for all non-HRM keys) ---
+  q (t! nomod q)
+  w (t! nomod w)
+  e (t! nomod e)
+  r (t! nomod r)
+  t (t! nomod t)
+
+  y (t! nomod y)
+  u (t! nomod u)
+  i (t! nomod i)
+  o (t! nomod o)
+  p (t! nomod p)
+
+  g (t! nomod g)
+  h (t! nomod h)
+  ' (t! nomod ')
+
+  x (t! nomod x)
+  c (t! nomod c)
+  v (t! nomod v)
+  b (t! nomod b)
+
+  n (t! nomod n)
+  m (t! nomod m)
+  , (t! nomod ,)
+  . (t! nomod .)
+  / (t! nomod /)
+
+  ;; --- Nav layer shortcuts (unchanged from kanata.kbd) ---
+  opt_bspc (multi lalt bspc)
+  opt_del  (multi lalt del)
+  cmd_q    (multi lmet q)
+  cmd_w    (multi lmet w)
+  cmd_x    (multi lmet x)
+  cmd_c    (multi lmet c)
+  cmd_v    (multi lmet v)
+  opt_dot  (multi lalt .)
+
+  ;; --- Fn layer toggles ---
+  fn_base (layer-toggle fn-base)
+  fn_byp  (layer-toggle fn-byp)
+  to_byp  (layer-switch bypass)
+  to_base (layer-switch base)
+
+  ;; --- Num layer macros ---
+  r$  (macro S-r S-4 spc)            ;; "R$ " (currency prefix)
+  000 (macro Digit0 Digit0 Digit0)   ;; "000"
+  ,00 (macro , Digit0 Digit0 spc)    ;; ",00 "
+)
+
+(defchordsv2
+  (g h) lrld $combo-timeout all-released (base nomods nav num sym bypass fn-base fn-byp muggle)
+)
+
+(defsrc
+  esc  f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  grv  1    2    3    4    5    6    7    8    9    0    -    =    bspc
+  tab  q    w    e    r    t    y    u    i    o    p    [    ]    \
+  caps a    s    d    f    g    h    j    k    l    scln '    ret
+  lsft z    x    c    v    b    n    m    ,    .    /    rsft
+  fn   lctl lalt lmet           spc            rmet ralt
+)
+
+(deflayer base
+  esc      brdn  brup  f3   f4   f5   f6   prev pp   next  mute  vold  volu
+  grv      1     2     3    4    5    6    7    8    9     0     -     =     bspc
+  @tab_num @q    @w    @e   @r   @t   @y   @u   @i   @o    @p    [     ]     \
+  @caps_mod @a_mod @s_mod @d_mod @f_mod @g @h @j_mod @k_mod @l_mod @sem_mod @' ret
+  lsft     @zfn  @x    @c   @v   @b   @n   @m   @,   @.    @/    rsft
+  @fn_base lctl  lalt  lmet           @spc_nav        @rmet_sym ralt
+)
+
+;; Temporarily active during fast typing to prevent accidental HRM hold activation.
+;; All HRM keys output their tap character here, except the shift keys (F=lsft, J=rsft)
+;; which stay active so you can capitalize while typing fast.
+(deflayer nomods
+  esc      brdn  brup  f3   f4   f5   f6   prev pp   next  mute  vold  volu
+  grv      1     2     3    4    5    6    7    8    9     0     -     =     bspc
+  tab      q     w     e    r    t    y    u    i    o     p     [     ]     \
+  @caps_mod a    s     d    @f_mod g  h    @j_mod k  l     scln  '     ret
+  lsft     z     x     c    v    b    n    m    ,    .     /     rsft
+  @fn_base lctl  lalt  lmet           @spc_nav        rmet  ralt
+)
+
+(deflayer nav
+  _    _      _      _      _      _    _     _     _     _        _    _    _
+  _    _      _      _      _      _    _     _     _     _        _    _    _    _
+  _    @cmd_q @cmd_w _      _      _    _     del   up    bspc     _    _    _    _
+  _    lctl   lmet   lalt   lsft   _    home  left  down  rght     end  _    _
+  _    _      @cmd_x @cmd_c @cmd_v _    pgup  pgdn  _     @opt_dot _    _
+  _    _      _      _                  _                  _        _
+)
+
+;; Numpad on right hand, regular mods on left hand.
+;; Access: hold Tab.
+(deflayer num
+  _    f1    f2    f3   f4    f5    f6   f7   f8   f9   f10   f11   f12
+  _    _     _     _    _     _     _    _    _    _    _     _     _     _
+  _    S-9   S-0   XX   @r$   XX    S-=  7    8    9    S-8   _     _     _
+  _    lctl  lalt  lsft lmet  bspc  -    4    5    6    /     _     _
+  _    XX    lsft  XX   @000  @,00  ,    1    2    3    .     _
+  _    _     _     _                _                  _      _
+)
+
+;; Symbol layer adapted for US ANSI layout.
+;; Right home row: regular mods for shifted combos.
+;; Spacebar: underscore (useful for snake_case).
+;; Access: hold rMeta.
+(deflayer sym
+  _    f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+  _    _     _     _     _     _     _     _     _     _     _     _     _     _
+  _    esc   S-[   [     S-9   S-5   S-7   S-0   ]     S-]   S-'   _     _     _
+  _    -     S-6   grv   S-grv S-4   S-3   lmet  lsft  lalt  lctl  _     _
+  _    S-=   =     S-8   /     S-2   S-\   \     S-/   S-1   S-;   _
+  _    _     _     _                 S--               _     _
+)
+
+;; No HRM, no layer tricks. Plain keyboard passthrough.
+;; Toggle via layer-switch muggle (add a shortcut or use kanata-tray to activate).
+(deflayer muggle
+  esc  brdn  brup  f3   f4   f5   f6   prev pp   next  mute  vold  volu
+  grv  1     2     3    4    5    6    7    8    9     0     -     =     bspc
+  tab  q     w     e    r    t    y    u    i    o     p     [     ]     \
+  caps a     s     d    f    g    h    j    k    l     scln  '     ret
+  lsft z     x     c    v    b    n    m    ,    .     /     rsft
+  fn   lctl  lalt  lmet           spc             rmet  ralt
+)
+
+(deflayer bypass
+  esc  brdn  brup  f3   f4   f5   f6   prev pp   next  mute  vold  volu
+  grv  1     2     3    4    5    6    7    8    9     0     -     =     bspc
+  tab  q     w     e    r    t    y    u    i    o     p     [     ]     \
+  caps a     s     d    f    g    h    j    k    l     scln  '     ret
+  lsft z     x     c    v    b    n    m    ,    .     /     rsft
+  @fn_byp lctl lalt lmet          spc              rmet  ralt
+)
+
+(deflayer fn-base
+  _    f1    f2    f3   f4   f5   f6   f7   f8   f9   f10   f11   f12
+  _    _     _     _    _    _    _    _    _    _    _     _     _     _
+  _    _     _     _    _    _    _    _    _    _    _     _     _     @to_byp
+  _    _     _     _    _    _    _    _    _    _    _     _     _
+  _    _     _     _    _    _    _    _    _    _    _     _
+  _    _     _     _              _                   _     _
+)
+
+(deflayer fn-byp
+  _    f1    f2    f3   f4   f5   f6   f7   f8   f9   f10   f11   f12
+  _    _     _     _    _    _    _    _    _    _    _     _     _     _
+  _    _     _     _    _    _    _    _    _    _    _     _     _     @to_base
+  _    _     _     _    _    _    _    _    _    _    _     _     _
+  _    _     _     _    _    _    _    _    _    _    _     _
+  _    _     _     _              _                   _     _
+)

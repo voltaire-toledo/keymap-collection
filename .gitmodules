@@ -1,3 +1,6 @@
 [submodule "ZMK"]
 	path = ZMK
 	url = https://github.com/voltaire-toledo/submod-zmk.git
+[submodule "QMK"]
+	path = QMK
+	url = https://github.com/voltaire-toledo/submod-qmk.git

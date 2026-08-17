@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-colorway="space-gray">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VT Mello Keymaps · Interactive Keyboard Reference</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Modular Stylesheets -->
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/layout.css" />
+    <link rel="stylesheet" href="css/keyboard.css" />
+  </head>
+  <body>
+    <button
+      class="theme-toggle"
+      id="theme-toggle"
+      type="button"
+      aria-label="Toggle dark mode"
+    >
+      <span class="icon" id="theme-toggle-icon">🌙</span>
+      <span class="label" id="theme-toggle-label">Dark</span>
+    </button>
+
+    <div class="page">
+      <header class="hero">
+        <p class="eyebrow">Mello Keymap Library</p>
+        <h1>Interactive Keymap Reference</h1>
+        <p>
+          An interactive visualizer for custom keyboard layouts — inspect every layer, tap/hold binding, and macro for ZMK, QMK, and Kanata configurations.
+        </p>
+      </header>
+
+      <!-- Multi-Keyboard Model Catalog Bar -->
+      <div class="keyboard-selector-bar">
+        <div class="selector-group">
+          <label for="keyboard-select" class="selector-label">Keyboard Target:</label>
+          <select id="keyboard-select" class="keyboard-select" aria-label="Select Keyboard Target"></select>
+        </div>
+        <a id="download-link" class="download-link" href="#" target="_blank" rel="noopener">⬇ Download Firmware UF2</a>
+      </div>
+
+      <div class="layout">
+        <nav class="sidebar" id="sidebar-layers" aria-label="Layer selector"></nav>
+
+        <main>
+          <div class="mobile-picker">
+            <select id="mobile-layer-select" aria-label="Select layer"></select>
+          </div>
+
+          <div class="colorway-picker" id="colorway-picker">
+            <div class="colorway-picker-head">
+              <span class="colorway-swatch" id="colorway-swatch"></span>
+              <span class="colorway-label" id="colorway-label">Space Gray</span>
+            </div>
+            <input
+              type="range"
+              id="colorway-slider"
+              min="0"
+              max="3"
+              step="1"
+              value="0"
+              aria-label="Keyboard colorway"
+            />
+            <div class="colorway-ticks-labels" id="colorway-ticks-labels">
+              <span data-colorway="space-gray">Space Gray</span>
+              <span data-colorway="ivory-white">Ivory White</span>
+              <span data-colorway="retro-blue">Retro Blue</span>
+              <span data-colorway="retro-red">Retro Red</span>
+            </div>
+          </div>
+
+          <div class="stage-card">
+            <div class="stage-head">
+              <h2 id="stage-title">Base Layer</h2>
+              <span class="platform-tag" id="stage-platform">macOS</span>
+            </div>
+
+            <div class="switch-indicator">
+              <span class="switch-indicator-badge">
+                <span class="switch-indicator-arrow" id="switch-indicator-arrow">→</span>
+                <span id="switch-indicator-text">OS switch: move right for macOS</span>
+              </span>
+            </div>
+
+            <!-- SVG Icon Symbol Defs -->
+            <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+              <defs>
+                <symbol id="icon-brightness-down" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="4" />
+                  <rect x="11" y="1" width="2" height="3" rx="1" />
+                  <rect x="11" y="20" width="2" height="3" rx="1" />
+                  <rect x="1" y="11" width="3" height="2" rx="1" />
+                  <rect x="20" y="11" width="3" height="2" rx="1" />
+                </symbol>
+                <symbol id="icon-brightness-up" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="5.2" />
+                  <rect x="10.8" y="0" width="2.4" height="3.4" rx="1.2" />
+                  <rect x="10.8" y="20.6" width="2.4" height="3.4" rx="1.2" />
+                  <rect x="0" y="10.8" width="3.4" height="2.4" rx="1.2" />
+                  <rect x="20.6" y="10.8" width="3.4" height="2.4" rx="1.2" />
+                  <circle cx="4.4" cy="4.4" r="1.6" />
+                  <circle cx="19.6" cy="4.4" r="1.6" />
+                  <circle cx="4.4" cy="19.6" r="1.6" />
+                  <circle cx="19.6" cy="19.6" r="1.6" />
+                </symbol>
+                <symbol id="icon-search" viewBox="0 0 24 24">
+                  <path fill-rule="evenodd" d="M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm0 2.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z" />
+                  <path d="M14.08 15.92 L15.92 14.08 L21.92 20.08 L20.08 21.92 Z" />
+                </symbol>
+                <symbol id="icon-lock" viewBox="0 0 24 24">
+                  <rect x="5" y="10" width="14" height="11" rx="2.4" />
+                  <path d="M8 10V7a4 4 0 1 1 8 0v3h-2.4V7a1.6 1.6 0 0 0-3.2 0v3H8Z" />
+                </symbol>
+                <symbol id="icon-launchpad" viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="5.4" height="5.4" rx="1.3" />
+                  <rect x="9.3" y="3" width="5.4" height="5.4" rx="1.3" />
+                  <rect x="15.6" y="3" width="5.4" height="5.4" rx="1.3" />
+                  <rect x="3" y="9.3" width="5.4" height="5.4" rx="1.3" />
+                  <rect x="9.3" y="9.3" width="5.4" height="5.4" rx="1.3" />
+                  <rect x="15.6" y="9.3" width="5.4" height="5.4" rx="1.3" />
+                  <rect x="3" y="15.6" width="5.4" height="5.4" rx="1.3" />
+                  <rect x="9.3" y="15.6" width="5.4" height="5.4" rx="1.3" />
+                  <rect x="15.6" y="15.6" width="5.4" height="5.4" rx="1.3" />
+                </symbol>
+                <symbol id="icon-mute" viewBox="0 0 24 24">
+                  <path d="M3 9v6h4l5 5V4L7 9H3Z" />
+                  <rect x="15.3" y="10.9" width="8" height="2.2" rx="1.1" transform="rotate(45 19.3 12)" />
+                  <rect x="15.3" y="10.9" width="8" height="2.2" rx="1.1" transform="rotate(-45 19.3 12)" />
+                </symbol>
+                <symbol id="icon-volume-down" viewBox="0 0 24 24">
+                  <path d="M3 9v6h4l5 5V4L7 9H3Z" />
+                  <path fill-rule="evenodd" d="M16.3 8.6a4.9 4.9 0 0 1 0 6.8l-1.3-1.3a3.1 3.1 0 0 0 0-4.2Z" />
+                </symbol>
+                <symbol id="icon-volume-up" viewBox="0 0 24 24">
+                  <path d="M3 9v6h4l5 5V4L7 9H3Z" />
+                  <path fill-rule="evenodd" d="M15.3 8.6a4.9 4.9 0 0 1 0 6.8l-1.3-1.3a3.1 3.1 0 0 0 0-4.2Z" />
+                  <path fill-rule="evenodd" d="M18.3 5.6a9.9 9.9 0 0 1 0 12.8l-1.3-1.4a8.1 8.1 0 0 0 0-10Z" />
+                </symbol>
+              </defs>
+            </svg>
+
+            <div class="board-wrap">
+              <img
+                class="board-svg"
+                id="board-img"
+                src="assets/b1pro/KcB1Pro_ANSI_PSG.svg"
+                alt="Keychron B1 Pro keyboard illustration"
+              />
+              <svg
+                class="board-svg"
+                id="overlay"
+                viewBox="0 0 388 173"
+                xmlns="http://www.w3.org/2000/svg"
+              ></svg>
+            </div>
+
+            <div class="info-panel" id="info-panel">
+              <kbd class="info-key" id="info-key">—</kbd>
+              <div class="info-note" id="info-note">
+                Hover or tap any key on the board to inspect its binding.
+              </div>
+            </div>
+
+            <footer class="legend">
+              <span><i></i> Tap action</span>
+              <span><i class="hold"></i> Hold / secondary action</span>
+              <span><i class="inert"></i> In use while in layer</span>
+            </footer>
+          </div>
+        </main>
+      </div>
+
+      <p class="credit">
+        Keyboard artwork © Keychron, used with permission. Managed by VT Mello Keymaps.
+      </p>
+    </div>
+
+    <!-- ES Module Main Entry Point -->
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

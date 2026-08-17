@@ -1,0 +1,112 @@
+;; Kanata Configuration for macOS
+;; Optimized for Internal Keyboard + Synergy + Keychron V1 Max
+;; Compatible with v1.11.0 (No defhands/tap-hold-opposite-hand)
+
+(defcfg
+  process-unmapped-keys yes
+  concurrent-tap-hold yes
+  ;; tap-hold-require-prior-idle 150
+
+  macos-dev-names-include (
+    "0xD4359520DA829EC8" ;; Apple Internal Keyboard / Trackpad
+    "Karabiner DriverKit VirtualHIDKeyboard 1.8.0"
+    "Keychron V1 Max"
+    "Synergy Mouse"
+    "USB Receiver"
+    "Wireless Gaming Keyboard"
+    "Keychron Link"
+  )
+)
+
+(defvar
+  left-hand-keys (grv 1 2 3 4 5 tab q w e r t caps a s d f g lsft z x c v b)
+  right-hand-keys (6 7 8 9 0 - = bspc y u i o p [ ] \ h j k l scln ' ret n m , . / rsft)
+)
+
+(defsrc
+  esc  f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  grv  1    2    3    4    5    6    7    8    9    0    -    =    bspc
+  tab  q    w    e    r    t    y    u    i    o    p    [    ]    \
+  caps a    s    d    f    g    h    j    k    l    scln '    ret
+  lsft z    x    c    v    b    n    m    ,    .    /    rsft
+  fn   lctl lalt lmet           spc            rmet ralt
+)
+
+(defalias
+  base_lyr (layer-switch base)
+  bypass_lyr (layer-switch bypass)
+
+  caps_nav (tap-hold 200 150 esc (layer-toggle nav))
+  
+  ;; Home row mods using urob's "timeless" approach:
+  ;; Balanced flavor (tap-hold-release-tap-keys-release) + Prior Idle (in defcfg)
+  a_mod (tap-hold-release-tap-keys-release 280 280 a lctl $right-hand-keys $left-hand-keys)
+  s_mod (tap-hold-release-tap-keys-release 280 280 s lmet $right-hand-keys $left-hand-keys)
+  d_mod (tap-hold-release-tap-keys-release 280 280 d lalt $right-hand-keys $left-hand-keys)
+  f_mod (tap-hold-release-tap-keys-release 200 200 f lsft $right-hand-keys $left-hand-keys)
+
+  j_mod (tap-hold-release-tap-keys-release 200 200 j rsft $left-hand-keys $right-hand-keys)
+  k_mod (tap-hold-release-tap-keys-release 280 280 k ralt $left-hand-keys $right-hand-keys)
+  l_mod (tap-hold-release-tap-keys-release 280 280 l lmet $left-hand-keys $right-hand-keys)
+  sem_mod (tap-hold-release-tap-keys-release 280 280 scln rctl $left-hand-keys $right-hand-keys)
+
+  opt_bspc (multi lalt bspc)
+  opt_del (multi lalt del)
+
+  cmd_q (multi lmet q)
+  cmd_w (multi lmet w)
+  cmd_x (multi lmet x)
+  cmd_c (multi lmet c)
+  cmd_v (multi lmet v)
+  opt_dot (multi lalt .)
+
+  fn_base (layer-toggle fn-base)
+  fn_byp  (layer-toggle fn-byp)
+  to_byp  (layer-switch bypass)
+  to_base (layer-switch base)
+)
+
+(deflayer base
+  esc  brdn brup f3   f4   f5   f6   prev pp   next mute vold volu
+  grv  1    2    3    4    5    6    7    8    9    0    -    =    bspc
+  tab  q    w    e    r    t    y    u    i    o    p    [    ]    \
+  @caps_nav @a_mod @s_mod @d_mod @f_mod g h @j_mod @k_mod @l_mod @sem_mod ' ret
+  lsft z    x    c    v    b    n    m    ,    .    /    rsft
+  @fn_base lctl lalt lmet           spc            rmet ralt
+)
+
+(deflayer nav
+  _    _    _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    _    _    _    _    _    _    _    _
+  _    @cmd_q @cmd_w _    _    _    _    del  up   bspc _    _    _    _
+  _    lctl lmet lalt lsft _    home left down rght end  _    _
+  _    _    @cmd_x @cmd_c @cmd_v _    _    pgup pgdn @opt_dot _    _
+  _    _    _    _              _              _    _
+)
+
+(deflayer bypass
+  esc  brdn brup f3   f4   f5   f6   prev pp   next mute vold volu
+  grv  1    2    3    4    5    6    7    8    9    0    -    =    bspc
+  tab  q    w    e    r    t    y    u    i    o    p    [    ]    \
+  caps a    s    d    f    g    h    j    k    l    scln '    ret
+  lsft z    x    c    v    b    n    m    ,    .    /    rsft
+  @fn_byp lctl lalt lmet           spc            rmet ralt
+)
+
+(deflayer fn-base
+  _    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  _    _    _    _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    _    _    _    _    _    _    _    @to_byp
+  _    _    _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _              _              _    _
+)
+
+(deflayer fn-byp
+  _    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  _    _    _    _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    _    _    _    _    _    _    _    @to_base
+  _    _    _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _              _              _    _
+)
