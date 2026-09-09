@@ -87,6 +87,20 @@ export function bottomRowMac(navLabel, funcLabel) {
   ];
 }
 
+export function bottomRowWin(navLabel, funcLabel) {
+  return [
+    K("Ctrl"),
+    K("Win"),
+    K("Alt"),
+    K("Space", navLabel),
+    K("Alt"),
+    K("Fn", funcLabel, "", "Tap = one-shot Macro selector"),
+    K("←"),
+    [K("↑"), K("↓")],
+    K("→"),
+  ];
+}
+
 export const INERT13 = Array(13).fill(null);
 export function inertRow5() {
   return [null, null, null, null, null, null, null, [null, null], null];
