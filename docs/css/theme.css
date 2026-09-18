@@ -20,9 +20,10 @@
   --key-cover-inert: #f1f0ed;
   --key-active-bg: #1d1d1f;
   --key-active-text: #ffffff;
-  --radius-lg: 12px;
-  --radius-md: 8px;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -12px rgba(0, 0, 0, 0.12);
+  --radius-lg: 4px;
+  --radius-md: 4px;
+  --radius-sm: 2px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -8px rgba(0, 0, 0, 0.08);
 }
 
 @media (prefers-color-scheme: dark) {

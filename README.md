@@ -1,4 +1,4 @@
-# VT Mello Keymap Collection
+# Keymap Collection
 
 This repository serves as the central hub for my custom keyboard firmware and keymaps. It manages two separate Git submodules for different keyboard ecosystems:
 

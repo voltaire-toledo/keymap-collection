@@ -1,107 +1,592 @@
 /* ======================================================================
-   UI Engine & Interactivity Handlers
+   VT Mello Keymaps - Modern UI Engine & View Controller
+   Built with Reactive Unidirectional Flow & Event Delegation
    ====================================================================== */
 import { KEYBOARD_CATALOG } from "../config/catalog.js";
-import { renderLayer } from "./renderer.js";
+import {
+  renderLayer,
+  attachDelegatedEvents,
+  getCellFromLayer,
+} from "./renderer.js";
+import { createStore } from "./store.js";
 
-export function initUI(allLayers, grid, state) {
-  const overlay = document.getElementById("overlay");
-  const infoKey = document.getElementById("info-key");
-  const infoNote = document.getElementById("info-note");
-  const stageTitle = document.getElementById("stage-title");
-  const stagePlatform = document.getElementById("stage-platform");
-  const switchArrow = document.getElementById("switch-indicator-arrow");
-  const switchText = document.getElementById("switch-indicator-text");
-  const layerSidebarEl = document.getElementById("sidebar-layers");
-  const mobilePickerEl = document.getElementById("mobile-layer-select");
-  const modelSelectEl = document.getElementById("keyboard-select");
-  const downloadLinkEl = document.getElementById("download-link");
-  const themeToggleEl = document.getElementById("theme-toggle");
-  const colorwaySlider = document.getElementById("colorway-slider");
-  const colorwayLabel = document.getElementById("colorway-label");
-  const colorwaySwatch = document.getElementById("colorway-swatch");
-  const boardImg = document.getElementById("board-img");
+/**
+ * Supported hardware colorways with matching SVG plate assets.
+ */
+export const COLORWAYS = Object.freeze([
+  {
+    id: "retro-red",
+    name: "Retro Red",
+    swatch: "#93162a",
+    file: "assets/b1pro/KcB1Pro_ANSI_PRetro.svg",
+  },
+  {
+    id: "retro-blue",
+    name: "Retro Blue",
+    swatch: "#9ca4b2",
+    file: "assets/b1pro/KcB1Pro_ANSI_PRetro.svg",
+  },
+  {
+    id: "space-gray",
+    name: "Space Gray",
+    swatch: "#3b3b3d",
+    file: "assets/b1pro/KcB1Pro_ANSI_PSG.svg",
+  },
+  {
+    id: "ivory-white",
+    name: "Ivory White",
+    swatch: "#fdfdfc",
+    file: "assets/b1pro/KcB1Pro_ANSI_PI.svg",
+  },
+]);
 
-  const COLORWAYS = [
-    {
-      id: "retro-red",
-      name: "Retro Red",
-      swatch: "#93162a",
-      file: "assets/b1pro/KcB1Pro_ANSI_PRetro.svg",
-    },
-    {
-      id: "retro-blue",
-      name: "Retro Blue",
-      swatch: "#9ca4b2",
-      file: "assets/b1pro/KcB1Pro_ANSI_PI.svg",
-    },
-    {
-      id: "space-gray",
-      name: "Space Gray",
-      swatch: "#3b3b3d",
-      file: "assets/b1pro/KcB1Pro_ANSI_PSG.svg",
-    },
-    {
-      id: "ivory-white",
-      name: "Ivory White",
-      swatch: "#fdfdfc",
-      file: "assets/b1pro/Keychron_B1_Pro_ANSI.svg",
-    },
-  ];
+/**
+ * Escapes HTML entities to prevent XSS.
+ * @param {any} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-  function showInfo(cell) {
-    if (!cell || cell === null) {
-      infoKey.textContent = "—";
-      infoNote.innerHTML = "In use while in layer.";
-      return;
-    }
-    if (cell.trans) {
-      infoKey.textContent = "▼";
-      infoNote.innerHTML =
-        "Inherits whatever this position does on the <strong>Base Layer</strong>.";
-      return;
-    }
-    infoKey.textContent = cell.t;
-    let parts = [];
-    if (cell.h) parts.push(`<span class="info-chip hold">Hold: ${cell.h}</span>`);
-    if (cell.sh) parts.push(`<span class="info-chip shift">Shift → ${cell.sh}</span>`);
-    if (cell.n) parts.push(`<span>${cell.n}</span>`);
-    infoNote.innerHTML = parts.length
-      ? parts.join(" &nbsp; ")
-      : `Tap action on this layer.`;
+/**
+ * Categorizes the functional role of a keycap binding.
+ * @param {Object} cell
+ * @returns {string}
+ */
+export function getKeyRole(cell) {
+  if (cell.h && cell.t) return "Dual-Role Key";
+  if (cell.icon) return "Media Icon";
+  if (cell.sh) return "Shifted Key";
+  return "Standard Binding";
+}
+
+/**
+ * Formats user-friendly documentation note for a key binding.
+ * @param {Object} cell
+ * @returns {string}
+ */
+export function getKeyNote(cell) {
+  if (cell.n) return escapeHtml(cell.n);
+  if (cell.h && cell.t) {
+    return `Single tap emits <strong>${escapeHtml(cell.t)}</strong>. Hold emits <strong>${escapeHtml(cell.h)}</strong>.`;
+  }
+  if (cell.t) {
+    return `Standard keypress action for <strong>${escapeHtml(cell.t)}</strong> on this layer.`;
+  }
+  return "Active key binding on this layer.";
+}
+
+/**
+ * Formats Markdown changelog text securely into structured HTML.
+ * @param {Object|null} release
+ * @returns {string}
+ */
+export function formatChangelogHtml(release) {
+  if (!release?.changelog?.length) {
+    return `
+      <h4>Coming Soon</h4>
+      <p>Changelog and release notes for this keyboard configuration are currently being prepared.</p>
+    `;
   }
 
-  function updateLayerUI(id) {
-    const layer = allLayers[id];
-    if (!layer) return;
+  const notesHtml = release.notes
+    ? `<p style="color: var(--text-muted); margin-bottom: 1rem;"><em>${escapeHtml(release.notes)}</em></p>`
+    : "";
 
-    stageTitle.textContent = `${String(layer.num).padStart(2, "0")} · ${layer.name}`;
-    stagePlatform.textContent = layer.platform === "mac" ? "macOS" : "Windows";
+  const listItems = release.changelog
+    .map((line) => {
+      const safeText = escapeHtml(line);
+      const bolded = safeText.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+      return `<li>${bolded}</li>`;
+    })
+    .join("");
 
-    if (layer.num >= 6) {
-      switchArrow.textContent = "⚙";
-      switchText.textContent = "Physical Win/Mac switch set to: WIN";
-    } else {
-      switchArrow.textContent = "";
-      switchText.textContent = "Physical Win/Mac switch set to: MAC";
-    }
+  return `
+    <h4>${escapeHtml(release.name)}</h4>
+    ${notesHtml}
+    <ul>${listItems}</ul>
+  `;
+}
 
-    renderLayer(id, allLayers, grid, overlay, showInfo, state);
+/**
+ * Initializes and binds the complete User Interface and Event Loop.
+ * @param {Record<string, Object>} allLayers - Complete dictionary of layer maps
+ * @param {Array<Array<Array<number>>>} grid - Geometry bounding grid
+ * @param {ReturnType<createStore>} [store] - Reactive application store
+ */
+export function initUI(allLayers, grid, externalStore) {
+  // ---------------------------------------------------------------------------
+  // 1. Cached DOM Elements
+  // ---------------------------------------------------------------------------
+  const dom = {
+    overlay: document.getElementById("overlay"),
+    stageTitle: document.getElementById("stage-title"),
+    stagePlatform: document.getElementById("stage-platform"),
+    switchArrow: document.getElementById("switch-indicator-arrow"),
+    switchText: document.getElementById("switch-indicator-text"),
+    layerSidebarEl: document.getElementById("sidebar-layers"),
+    mobilePickerEl: document.getElementById("mobile-layer-select"),
+    modelSelectEl: document.getElementById("keyboard-select"),
+    versionSelectEl: document.getElementById("version-select"),
+    changelogBtn: document.getElementById("changelog-btn"),
+    downloadLinkEl: document.getElementById("download-link"),
+    downloadText: document.getElementById("download-text"),
+    themeToggleEl: document.getElementById("theme-toggle"),
+    themeToggleIcon: document.getElementById("theme-toggle-icon"),
+    themeToggleLabel: document.getElementById("theme-toggle-label"),
+    colorwaySlider: document.getElementById("colorway-slider"),
+    colorwayLabel: document.getElementById("colorway-label"),
+    colorwaySwatch: document.getElementById("colorway-swatch"),
+    boardImg: document.getElementById("board-img"),
+    stageCard: document.querySelector(".stage-card"),
+    switchIndicator: document.querySelector(".switch-indicator"),
+    boardWrap: document.querySelector(".board-wrap"),
+    legend: document.querySelector(".legend"),
+    infoPanel: document.getElementById("info-panel"),
 
-    document.querySelectorAll(".layer-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.layer === id);
+    // Key Inspector Properties
+    infoKey: document.getElementById("info-key"),
+    infoPos: document.getElementById("info-pos"),
+    infoTitle: document.getElementById("info-title"),
+    infoContext: document.getElementById("info-context"),
+    infoTap: document.getElementById("info-tap"),
+    infoHold: document.getElementById("info-hold"),
+    infoShift: document.getElementById("info-shift"),
+    infoNote: document.getElementById("info-note"),
+
+    // Changelog Modal
+    changelogModal: document.getElementById("changelog-modal"),
+    modalTitle: document.getElementById("modal-title"),
+    modalBadge: document.getElementById("modal-badge"),
+    modalBody: document.getElementById("modal-body"),
+    modalMeta: document.getElementById("modal-meta"),
+    modalCloseBtn: document.getElementById("modal-close-btn"),
+    modalDismissBtn: document.getElementById("modal-dismiss-btn"),
+  };
+
+  // ---------------------------------------------------------------------------
+  // 2. Initial State Setup (TASK-12, TASK-17)
+  // ---------------------------------------------------------------------------
+  const activeDocColorway = document.documentElement.getAttribute("data-colorway") || "space-gray";
+  const initialColorwayIdx = Math.max(0, COLORWAYS.findIndex((c) => c.id === activeDocColorway));
+
+  const urlHash = location.hash.replace("#", "");
+  const defaultKeyboard = KEYBOARD_CATALOG[0];
+  const initialLayerId = allLayers[urlHash]
+    ? urlHash
+    : defaultKeyboard?.defaultLayer || Object.keys(allLayers)[0] || "m_base";
+
+  const store =
+    externalStore ||
+    createStore({
+      keyboardId: defaultKeyboard.id,
+      layerId: initialLayerId,
+      releaseId: defaultKeyboard.releases?.[0]?.id || "",
+      colorwayIndex: initialColorwayIdx,
+      theme: localStorage.getItem("theme") || "light",
+      selectedCoord: null,
+      selectedCell: null,
+      hoveredCoord: null,
+      hoveredCell: null,
     });
-    if (mobilePickerEl) mobilePickerEl.value = id;
 
-    if (history.replaceState) {
-      history.replaceState(null, "", "#" + id);
+  // ---------------------------------------------------------------------------
+  // 3. View Renderers
+  // ---------------------------------------------------------------------------
+
+  function renderInspector(cell, activeLayer) {
+    if (!dom.infoKey || !dom.infoTap || !dom.infoHold || !dom.infoShift || !dom.infoNote) return;
+
+    if (!cell) {
+      dom.infoKey.textContent = "—";
+      if (dom.infoPos) dom.infoPos.textContent = "No Key Selected";
+      if (dom.infoTitle) dom.infoTitle.textContent = "Key Inspector";
+      if (dom.infoContext) dom.infoContext.textContent = "Hover or click any key";
+      dom.infoTap.textContent = "—";
+      dom.infoHold.textContent = "—";
+      dom.infoShift.textContent = "—";
+      dom.infoNote.innerHTML =
+        "Hover or click any key on the keyboard to inspect its bindings and firmware behavior.";
+      return;
+    }
+
+    if (cell.trans) {
+      dom.infoKey.textContent = "▼";
+      if (dom.infoPos) dom.infoPos.textContent = "Transparent";
+      if (dom.infoTitle) dom.infoTitle.textContent = "Pass-Through (&trans)";
+      if (dom.infoContext) dom.infoContext.textContent = "Inherits Base Layer";
+      dom.infoTap.innerHTML = "<code>&trans</code> Fallback";
+      dom.infoHold.textContent = "—";
+      dom.infoShift.textContent = "—";
+      dom.infoNote.innerHTML =
+        "Inherits whatever this physical position outputs on the <strong>Base Layer</strong>.";
+      return;
+    }
+
+    dom.infoKey.textContent = cell.t || (cell.icon ? "★" : "—");
+    if (dom.infoPos) dom.infoPos.textContent = getKeyRole(cell);
+    if (dom.infoTitle) {
+      dom.infoTitle.textContent = cell.h ? `${cell.t || "Key"}  /  ${cell.h}` : (cell.t || "Key Binding");
+    }
+
+    if (dom.infoContext) {
+      dom.infoContext.textContent = activeLayer
+        ? `${activeLayer.name} (${activeLayer.platform.toUpperCase()})`
+        : "Active Layer";
+    }
+
+    dom.infoTap.innerHTML = cell.t
+      ? `<code>${escapeHtml(cell.t)}</code>`
+      : (cell.icon ? `<code>#icon-${escapeHtml(cell.icon)}</code>` : "—");
+
+    dom.infoHold.innerHTML = cell.h
+      ? `<span class="info-chip hold">Hold: ${escapeHtml(cell.h)}</span>`
+      : "—";
+
+    dom.infoShift.innerHTML = cell.sh
+      ? `<span class="info-chip shift">Shift: ${escapeHtml(cell.sh)}</span>`
+      : "—";
+
+    dom.infoNote.innerHTML = getKeyNote(cell);
+  }
+
+  function renderStage(state) {
+    const { keyboardId, layerId } = state;
+    const keyboard = KEYBOARD_CATALOG.find((k) => k.id === keyboardId);
+
+    if (keyboardId === "b1pro") {
+      const csStage = document.getElementById("coming-soon-stage");
+      if (csStage) csStage.remove();
+
+      [dom.switchIndicator, dom.boardWrap, dom.infoPanel, dom.legend, dom.stagePlatform].forEach(
+        (el) => el && (el.style.display = "")
+      );
+      if (dom.colorwaySwatch) dom.colorwaySwatch.style.display = "";
+      if (dom.colorwaySlider) dom.colorwaySlider.style.display = "";
+
+      const layer = allLayers[layerId];
+      if (layer) {
+        dom.stageTitle.textContent = `${String(layer.num).padStart(2, "0")} · ${layer.name}`;
+        dom.stagePlatform.textContent = layer.platform === "mac" ? "macOS" : "Windows";
+
+        // TASK-16: Derive switch indicator strictly from platform, eliminating magic numbers
+        const isWindowsMode = layer.platform === "win";
+        dom.switchArrow.textContent = isWindowsMode ? "⚙" : "";
+        dom.switchText.textContent = isWindowsMode
+          ? "Physical Win/Mac switch set to: WIN"
+          : "Physical Win/Mac switch set to: MAC";
+
+        // Render Layer with DocumentFragment batching
+        renderLayer(layer, grid, dom.overlay, {
+          selectedCoord: state.selectedCoord,
+        });
+
+        // Sync Sidebar & Mobile Picker
+        document.querySelectorAll(".layer-btn").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.layer === layerId);
+        });
+        if (dom.mobilePickerEl) dom.mobilePickerEl.value = layerId;
+
+        if (history.replaceState) {
+          history.replaceState(null, "", `#${layerId}`);
+        }
+      }
+    } else {
+      // Coming soon stage for non-b1pro targets
+      [dom.switchIndicator, dom.boardWrap, dom.infoPanel, dom.legend].forEach(
+        (el) => el && (el.style.display = "none")
+      );
+      if (dom.colorwaySwatch) dom.colorwaySwatch.style.display = "none";
+      if (dom.colorwaySlider) dom.colorwaySlider.style.display = "none";
+
+      if (dom.stageTitle) dom.stageTitle.textContent = "Coming Soon";
+      if (dom.stagePlatform) {
+        dom.stagePlatform.textContent = keyboard ? keyboard.firmware : "Coming Soon";
+        dom.stagePlatform.style.display = "";
+      }
+
+      let csStage = document.getElementById("coming-soon-stage");
+      if (!csStage && dom.stageCard) {
+        csStage = document.createElement("div");
+        csStage.id = "coming-soon-stage";
+        csStage.className = "coming-soon-stage";
+        dom.stageCard.appendChild(csStage);
+      }
+
+      if (csStage) {
+        csStage.style.display = "block";
+        csStage.innerHTML = `
+          <div class="coming-soon-card">
+            <span class="coming-soon-badge">Coming Soon</span>
+            <h3>${keyboard ? keyboard.name : "Keyboard"} (${keyboard ? keyboard.firmware : ""})</h3>
+            <p>Interactive keymap visualization and firmware assets for this keyboard target are currently under development.</p>
+          </div>
+        `;
+      }
     }
   }
 
-  function populateSidebar() {
-    if (!layerSidebarEl) return;
-    layerSidebarEl.innerHTML = "";
+  function renderReleaseUI(release) {
+    if (!dom.downloadLinkEl) return;
+    const hasDownload = Boolean(release?.zipUrl && release.zipUrl !== "#");
 
+    if (hasDownload) {
+      dom.downloadLinkEl.href = release.zipUrl;
+      dom.downloadLinkEl.style.display = "inline-flex";
+      if (dom.downloadText) {
+        dom.downloadText.textContent = `Download ${release.version} (.zip)`;
+      } else {
+        dom.downloadLinkEl.textContent = `⬇ Download ${release.version} (.zip)`;
+      }
+    } else {
+      dom.downloadLinkEl.style.display = "none";
+    }
+  }
+
+  function renderColorway(idx) {
+    const cw = COLORWAYS[idx];
+    if (!cw) return;
+    document.documentElement.setAttribute("data-colorway", cw.id);
+    if (dom.colorwayLabel) dom.colorwayLabel.textContent = cw.name;
+    if (dom.colorwaySwatch) dom.colorwaySwatch.style.setProperty("--colorway-swatch-color", cw.swatch);
+    if (dom.boardImg) dom.boardImg.src = cw.file;
+    if (dom.colorwaySlider && dom.colorwaySlider.value !== String(idx)) {
+      dom.colorwaySlider.value = String(idx);
+    }
+  }
+
+  function renderTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    const isDark = theme === "dark";
+    if (dom.themeToggleIcon) dom.themeToggleIcon.textContent = isDark ? "☀️" : "🌙";
+    if (dom.themeToggleLabel) dom.themeToggleLabel.textContent = isDark ? "Light" : "Dark";
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. Modal Handlers
+  // ---------------------------------------------------------------------------
+
+  function openChangelogModal() {
+    const state = store.getState();
+    const keyboard = KEYBOARD_CATALOG.find((k) => k.id === state.keyboardId);
+    if (!keyboard) return;
+
+    const release = keyboard.releases?.find((r) => r.id === state.releaseId) || keyboard.releases?.[0] || null;
+
+    if (dom.modalTitle) {
+      dom.modalTitle.textContent = release ? `${keyboard.name} · ${release.version}` : `${keyboard.name} Changelog`;
+    }
+    if (dom.modalBadge) {
+      dom.modalBadge.textContent = release ? release.badge : keyboard.firmware;
+    }
+    if (dom.modalMeta) {
+      dom.modalMeta.textContent = release
+        ? `Release Date: ${release.date} · Status: ${release.status.toUpperCase()}`
+        : "";
+    }
+    if (dom.modalBody) {
+      dom.modalBody.innerHTML = formatChangelogHtml(release);
+    }
+
+    if (dom.changelogModal) {
+      dom.changelogModal.classList.add("open");
+      dom.changelogModal.setAttribute("aria-hidden", "false");
+    }
+  }
+
+  function closeChangelogModal() {
+    if (dom.changelogModal) {
+      dom.changelogModal.classList.remove("open");
+      dom.changelogModal.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. Reactive Store Subscriptions
+  // ---------------------------------------------------------------------------
+
+  store.subscribe((state, prevState) => {
+    // Stage or Layer Change
+    if (
+      state.layerId !== prevState.layerId ||
+      state.keyboardId !== prevState.keyboardId ||
+      state.selectedCoord !== prevState.selectedCoord
+    ) {
+      renderStage(state);
+    }
+
+    // Info Inspector State Machine (Hover > Selected > Default)
+    if (
+      state.hoveredCell !== prevState.hoveredCell ||
+      state.selectedCell !== prevState.selectedCell ||
+      state.layerId !== prevState.layerId
+    ) {
+      const activeCell = state.hoveredCell ?? state.selectedCell ?? null;
+      const activeLayer = allLayers[state.layerId];
+      renderInspector(activeCell, activeLayer);
+    }
+
+    // Colorway Change
+    if (state.colorwayIndex !== prevState.colorwayIndex) {
+      renderColorway(state.colorwayIndex);
+    }
+
+    // Theme Change
+    if (state.theme !== prevState.theme) {
+      renderTheme(state.theme);
+    }
+
+    // Selection Highlighting Toggle
+    if (state.selectedCoord !== prevState.selectedCoord) {
+      dom.overlay?.querySelectorAll(".key.selected").forEach((el) => {
+        el.classList.remove("selected");
+      });
+
+      if (state.selectedCoord) {
+        const { row, col, sub } = state.selectedCoord;
+        const selector =
+          sub !== undefined
+            ? `.key[data-row="${row}"][data-col="${col}"][data-sub="${sub}"]`
+            : `.key[data-row="${row}"][data-col="${col}"]`;
+        const targetEl = dom.overlay?.querySelector(selector);
+        targetEl?.classList.add("selected");
+      }
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // 6. Event Wiring & Bootstrap
+  // ---------------------------------------------------------------------------
+
+  // Delegated Key Canvas Events (TASK-20)
+  if (dom.overlay) {
+    attachDelegatedEvents(dom.overlay, {
+      onHover({ row, col, sub }) {
+        const activeLayer = allLayers[store.getState().layerId];
+        const cell = getCellFromLayer(activeLayer, row, col, sub);
+        store.setState({ hoveredCoord: { row, col, sub }, hoveredCell: cell });
+      },
+      onLeave() {
+        store.setState({ hoveredCoord: null, hoveredCell: null });
+      },
+      onSelect({ row, col, sub }) {
+        const state = store.getState();
+        const isSame =
+          state.selectedCoord &&
+          state.selectedCoord.row === row &&
+          state.selectedCoord.col === col &&
+          state.selectedCoord.sub === sub;
+
+        if (isSame) {
+          store.setState({ selectedCoord: null, selectedCell: null });
+        } else {
+          const activeLayer = allLayers[state.layerId];
+          const cell = getCellFromLayer(activeLayer, row, col, sub);
+          store.setState({
+            selectedCoord: { row, col, sub },
+            selectedCell: cell,
+          });
+        }
+      },
+    });
+  }
+
+  // Document-wide click deselect
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".key")) {
+      const state = store.getState();
+      if (state.selectedCoord !== null) {
+        store.setState({ selectedCoord: null, selectedCell: null });
+      }
+    }
+  });
+
+  // Colorway Slider Event
+  if (dom.colorwaySlider) {
+    dom.colorwaySlider.addEventListener("input", (e) => {
+      store.setState({ colorwayIndex: parseInt(e.target.value, 10) });
+    });
+  }
+
+  // Theme Toggle
+  if (dom.themeToggleEl) {
+    dom.themeToggleEl.addEventListener("click", () => {
+      const current = store.getState().theme;
+      const nextTheme = current === "dark" ? "light" : "dark";
+      localStorage.setItem("theme", nextTheme);
+      store.setState({ theme: nextTheme });
+    });
+  }
+
+  // Populate Catalogs & Selectors
+  function populateVersionSelector(keyboardId) {
+    if (!dom.versionSelectEl) return;
+    dom.versionSelectEl.innerHTML = "";
+
+    const keyboard = KEYBOARD_CATALOG.find((k) => k.id === keyboardId);
+    const releases = keyboard?.releases || [];
+
+    if (!releases.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "Coming Soon";
+      dom.versionSelectEl.appendChild(opt);
+      dom.versionSelectEl.disabled = true;
+      renderReleaseUI(null);
+      return;
+    }
+
+    dom.versionSelectEl.disabled = false;
+    const defaultRel = releases.find((r) => r.default) || releases[0];
+
+    releases.forEach((rel) => {
+      const opt = document.createElement("option");
+      opt.value = rel.id;
+      opt.textContent = rel.name;
+      if (rel.id === defaultRel.id) opt.selected = true;
+      dom.versionSelectEl.appendChild(opt);
+    });
+
+    store.setState({ releaseId: defaultRel.id });
+    renderReleaseUI(defaultRel); // TASK-13: Immediately initialize download link on load
+  }
+
+  if (dom.modelSelectEl) {
+    dom.modelSelectEl.innerHTML = "";
+    KEYBOARD_CATALOG.forEach((item) => {
+      const opt = document.createElement("option");
+      opt.value = item.id;
+      opt.textContent = `${item.name} (${item.firmware})`;
+      dom.modelSelectEl.appendChild(opt);
+    });
+
+    dom.modelSelectEl.addEventListener("change", (e) => {
+      const keyboardId = e.target.value;
+      store.setState({ keyboardId });
+      populateVersionSelector(keyboardId);
+    });
+  }
+
+  if (dom.versionSelectEl) {
+    dom.versionSelectEl.addEventListener("change", (e) => {
+      const releaseId = e.target.value;
+      const keyboard = KEYBOARD_CATALOG.find((k) => k.id === store.getState().keyboardId);
+      const rel = keyboard?.releases?.find((r) => r.id === releaseId) || null;
+      store.setState({ releaseId });
+      renderReleaseUI(rel);
+    });
+  }
+
+  // Populate Layer Sidebar & Picker
+  if (dom.layerSidebarEl) {
+    dom.layerSidebarEl.innerHTML = "";
     const groups = [
       { name: "macOS", platform: "mac" },
       { name: "Windows", platform: "win" },
@@ -124,112 +609,52 @@ export function initUI(allLayers, grid, state) {
           btn.className = "layer-btn";
           btn.type = "button";
           btn.dataset.layer = id;
-          btn.innerHTML = `<span class="num">${String(layer.num).padStart(2, "0")}</span><span>${layer.name}</span>`;
-          btn.addEventListener("click", () => updateLayerUI(id));
+          btn.innerHTML = `<span class="num">${String(layer.num).padStart(2, "0")}</span><span>${escapeHtml(layer.name)}</span>`;
+          btn.addEventListener("click", () => {
+            store.setState({ layerId: id, selectedCoord: null, selectedCell: null });
+          });
           groupEl.appendChild(btn);
         });
 
-      layerSidebarEl.appendChild(groupEl);
+      dom.layerSidebarEl.appendChild(groupEl);
     });
   }
 
-  function populateMobilePicker() {
-    if (!mobilePickerEl) return;
-    mobilePickerEl.innerHTML = "";
+  if (dom.mobilePickerEl) {
+    dom.mobilePickerEl.innerHTML = "";
     Object.keys(allLayers).forEach((id) => {
       const layer = allLayers[id];
       const opt = document.createElement("option");
       opt.value = id;
       opt.textContent = `${layer.num} · ${layer.platform.toUpperCase()} ${layer.name}`;
-      mobilePickerEl.appendChild(opt);
+      dom.mobilePickerEl.appendChild(opt);
     });
-    mobilePickerEl.addEventListener("change", (e) => updateLayerUI(e.target.value));
-  }
-
-  function populateModelCatalog() {
-    if (!modelSelectEl) return;
-    modelSelectEl.innerHTML = "";
-    KEYBOARD_CATALOG.forEach((item) => {
-      const opt = document.createElement("option");
-      opt.value = item.id;
-      opt.textContent = `${item.name} (${item.firmware})`;
-      modelSelectEl.appendChild(opt);
-    });
-
-    modelSelectEl.addEventListener("change", (e) => {
-      const item = KEYBOARD_CATALOG.find((k) => k.id === e.target.value);
-      if (item && downloadLinkEl) {
-        if (item.uf2Url) {
-          downloadLinkEl.href = item.uf2Url;
-          downloadLinkEl.style.display = "inline-flex";
-          downloadLinkEl.textContent = `⬇ Firmware ${item.latestRelease}`;
-        } else {
-          downloadLinkEl.style.display = "none";
-        }
-      }
+    dom.mobilePickerEl.addEventListener("change", (e) => {
+      store.setState({ layerId: e.target.value, selectedCoord: null, selectedCell: null });
     });
   }
 
-  function initColorways() {
-    function setColorway(idx) {
-      const cw = COLORWAYS[idx];
-      if (!cw) return;
-      document.documentElement.setAttribute("data-colorway", cw.id);
-      if (colorwayLabel) colorwayLabel.textContent = cw.name;
-      if (colorwaySwatch) colorwaySwatch.style.setProperty("--colorway-swatch-color", cw.swatch);
-      if (boardImg) boardImg.src = cw.file;
-
-      document.querySelectorAll(".colorway-ticks-labels span").forEach((sp, i) => {
-        sp.classList.toggle("active", i === idx);
-      });
-    }
-
-    if (colorwaySlider) {
-      colorwaySlider.addEventListener("input", (e) => setColorway(parseInt(e.target.value, 10)));
-      setColorway(parseInt(colorwaySlider.value, 10));
-    }
-  }
-
-  function initThemeToggle() {
-    if (!themeToggleEl) return;
-
-    function applyTheme(theme) {
-      document.documentElement.setAttribute("data-theme", theme);
-      const icon = document.getElementById("theme-toggle-icon");
-      const label = document.getElementById("theme-toggle-label");
-      if (theme === "dark") {
-        if (icon) icon.textContent = "☀️";
-        if (label) label.textContent = "Light";
-      } else {
-        if (icon) icon.textContent = "🌙";
-        if (label) label.textContent = "Dark";
-      }
-    }
-
-    let theme = localStorage.getItem("theme") || "light";
-    applyTheme(theme);
-
-    themeToggleEl.addEventListener("click", () => {
-      theme = theme === "dark" ? "light" : "dark";
-      localStorage.setItem("theme", theme);
-      applyTheme(theme);
+  // Modal Listeners
+  if (dom.changelogBtn) dom.changelogBtn.addEventListener("click", openChangelogModal);
+  if (dom.modalCloseBtn) dom.modalCloseBtn.addEventListener("click", closeChangelogModal);
+  if (dom.modalDismissBtn) dom.modalDismissBtn.addEventListener("click", closeChangelogModal);
+  if (dom.changelogModal) {
+    dom.changelogModal.addEventListener("click", (e) => {
+      if (e.target === dom.changelogModal) closeChangelogModal();
     });
   }
-
-  populateSidebar();
-  populateMobilePicker();
-  populateModelCatalog();
-  initColorways();
-  initThemeToggle();
-
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".key") && state.selectedKey) {
-      state.selectedKey.classList.remove("selected");
-      state.selectedKey = null;
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dom.changelogModal?.classList.contains("open")) {
+      closeChangelogModal();
     }
   });
 
-  const hashId = location.hash.replace("#", "");
-  const initialLayer = allLayers[hashId] ? hashId : "m_base";
-  updateLayerUI(initialLayer);
+  // Initial Sync
+  populateVersionSelector(store.getState().keyboardId);
+  renderColorway(store.getState().colorwayIndex);
+  renderTheme(store.getState().theme);
+  renderStage(store.getState());
+  renderInspector(null, allLayers[store.getState().layerId]);
+
+  return store;
 }

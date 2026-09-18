@@ -41,10 +41,24 @@
       <!-- Multi-Keyboard Model Catalog Bar -->
       <div class="keyboard-selector-bar">
         <div class="selector-group">
-          <label for="keyboard-select" class="selector-label">Keyboard Target:</label>
-          <select id="keyboard-select" class="keyboard-select" aria-label="Select Keyboard Target"></select>
+          <label for="keyboard-select" class="selector-label">Keyboard</label>
+          <select id="keyboard-select" class="keyboard-select" aria-label="Select Keyboard"></select>
         </div>
-        <a id="download-link" class="download-link" href="#" target="_blank" rel="noopener">⬇ Download Firmware UF2</a>
+
+        <div class="selector-group">
+          <label for="version-select" class="selector-label">Version</label>
+          <select id="version-select" class="keyboard-select" aria-label="Select Keymap Version"></select>
+        </div>
+
+        <button type="button" id="changelog-btn" class="changelog-link-btn" aria-label="View Changelog">
+          <span class="changelog-icon">📜</span>
+          <span>Changelog</span>
+        </button>
+
+        <a id="download-link" class="download-link" href="#" target="_blank" rel="noopener">
+          <span>⬇</span>
+          <span id="download-text">Download Release (.zip)</span>
+        </a>
       </div>
 
       <div class="layout">
@@ -66,15 +80,16 @@
               min="0"
               max="3"
               step="1"
-              value="0"
+              value="2"
+              list="colorway-ticks"
               aria-label="Keyboard colorway"
             />
-            <div class="colorway-ticks-labels" id="colorway-ticks-labels">
-              <span data-colorway="space-gray">Space Gray</span>
-              <span data-colorway="ivory-white">Ivory White</span>
-              <span data-colorway="retro-blue">Retro Blue</span>
-              <span data-colorway="retro-red">Retro Red</span>
-            </div>
+            <datalist id="colorway-ticks">
+              <option value="0"></option>
+              <option value="1"></option>
+              <option value="2"></option>
+              <option value="3"></option>
+            </datalist>
           </div>
 
           <div class="stage-card">
@@ -163,9 +178,39 @@
             </div>
 
             <div class="info-panel" id="info-panel">
-              <kbd class="info-key" id="info-key">—</kbd>
-              <div class="info-note" id="info-note">
-                Hover or tap any key on the board to inspect its binding.
+              <div class="info-preview-col">
+                <div class="info-key-wrapper">
+                  <kbd class="info-key" id="info-key">—</kbd>
+                </div>
+                <span class="info-pos-badge" id="info-pos">No Key Selected</span>
+              </div>
+
+              <div class="info-details-col">
+                <div class="info-head-row">
+                  <div class="info-title-group">
+                    <span class="info-action-title" id="info-title">Key Inspector</span>
+                    <span class="info-context-pill" id="info-context">Hover or click any key</span>
+                  </div>
+                </div>
+
+                <div class="info-grid">
+                  <div class="info-cell">
+                    <span class="info-cell-label">Tap Action</span>
+                    <div class="info-cell-val" id="info-tap">—</div>
+                  </div>
+                  <div class="info-cell">
+                    <span class="info-cell-label">Hold / Secondary</span>
+                    <div class="info-cell-val" id="info-hold">—</div>
+                  </div>
+                  <div class="info-cell">
+                    <span class="info-cell-label">Shifted Symbol</span>
+                    <div class="info-cell-val" id="info-shift">—</div>
+                  </div>
+                  <div class="info-cell info-cell-full">
+                    <span class="info-cell-label">Behavior Notes & Combos</span>
+                    <div class="info-cell-val" id="info-note">Hover or click any key on the keyboard to inspect its bindings and firmware behavior.</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -181,6 +226,26 @@
       <p class="credit">
         Keyboard artwork © Keychron, used with permission. Managed by VT Mello Keymaps.
       </p>
+    </div>
+
+    <!-- Changelog Modal Overlay -->
+    <div class="modal-backdrop" id="changelog-modal" aria-hidden="true">
+      <div class="modal-card" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-badge" id="modal-badge">Changelog</span>
+            <h2 class="modal-title" id="modal-title">Release Notes</h2>
+          </div>
+          <button type="button" class="modal-close" id="modal-close-btn" aria-label="Close modal">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+          <!-- Dynamically populated from catalog.js -->
+        </div>
+        <div class="modal-footer">
+          <span class="modal-meta" id="modal-meta"></span>
+          <button type="button" class="modal-btn-close" id="modal-dismiss-btn">Close</button>
+        </div>
+      </div>
     </div>
 
     <!-- ES Module Main Entry Point -->
