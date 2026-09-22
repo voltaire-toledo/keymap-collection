@@ -36,7 +36,6 @@ jobs:
           args: >-
             --verbose
             --no-progress
-            --exclude-mail
             --exclude '^https://fonts\.googleapis\.com/'
             --exclude '^https://fonts\.gstatic\.com/'
             './docs/**/*.html'
