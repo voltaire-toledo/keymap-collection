@@ -1,0 +1,127 @@
+name: Deploy static site to GitHub Pages
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/site-deploy.yml"
+
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - ".github/workflows/site-deploy.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate static site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Verify required files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f docs/index.html
+
+          grep -q '<title>' docs/index.html
+
+      - name: Check referenced local assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+          from urllib.parse import unquote
+
+          root = Path("docs")
+          html = (root / "index.html").read_text(encoding="utf-8")
+
+          references = re.findall(
+              r'(?:src|href)=["\']([^"\']+)["\']',
+              html,
+              flags=re.IGNORECASE,
+          )
+
+          missing = []
+
+          for reference in references:
+              reference = unquote(reference.strip())
+
+              if (
+                  not reference
+                  or reference.startswith((
+                      "http://",
+                      "https://",
+                      "//",
+                      "#",
+                      "mailto:",
+                      "javascript:",
+                      "data:",
+                  ))
+              ):
+                  continue
+
+              relative_path = reference.split("?", 1)[0].split("#", 1)[0]
+              target = root / relative_path
+
+              if not target.exists():
+                  missing.append(reference)
+
+          if missing:
+              print("Missing local assets:")
+              for item in sorted(set(missing)):
+                  print(f"- {item}")
+              sys.exit(1)
+
+          print("All local assets referenced by docs/index.html exist.")
+          PY
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: docs/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+
+      - name: Report deployment URL
+        run: |
+          echo "Deployed site: ${{ steps.deployment.outputs.page_url }}"
