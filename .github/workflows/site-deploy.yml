@@ -1,4 +1,4 @@
-name: Deploy static site to GitHub Pages
+name: Deploy satic Keymap Collection site (on-PR)
 
 on:
   pull_request:

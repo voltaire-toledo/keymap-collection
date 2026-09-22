@@ -1,4 +1,4 @@
-name: Check site links
+name: Validate site links
 
 on:
   pull_request:
