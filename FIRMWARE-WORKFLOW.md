@@ -1,14 +1,16 @@
 # Shared Firmware Candidate Workflow
 
 Referenced by `QMK/AGENTS.md` and `ZMK/AGENTS.md`. This file holds the
-candidate → QC → release discipline and `.ai/` document cadence common to
-both firmware tracks. Each AGENTS.md fills in its own project name,
-directory paths, artifact type, and protected hardware behavior.
+candidate → QC → release discipline common to both firmware tracks.
+Each AGENTS.md fills in its own project name, directory paths, artifact type,
+and protected hardware behavior.
 
 ## Session start
 
-Read every Markdown file in `.ai/` before starting work, to align on current
-goals, status, and open backlog.
+Run `backlog task list` (or query the root Backlog pool) for the relevant
+submodule prefix (`[QMK]` or `[ZMK]`) and review the active `<PROJECT>/`
+documents before starting work, to align on current goals, status, and
+open backlog items.
 
 ## Candidate and release discipline
 
@@ -31,10 +33,7 @@ goals, status, and open backlog.
   behavior, wireless controls, combos/tap-hold, or shared runtime code.
 - Build only the reviewed candidate. Record the exact generated artifact
   path and SHA-256. A successful compile or transfer is not hardware QC.
-- Before any flash, assign a revision identifier and append a root
-  `CHANGELOG.md` entry: revision id, date, artifact path + SHA-256, source
-  commit (when available), target unit, and a pending observed-result field.
-  Do not log a build merely because it compiled.
+- Before any flash, assign a revision identifier using semantic versioning where the final number is the build iteration (e.g., `v0.25.6` instead of `v0.25.1-build_6`). Append a root `CHANGELOG.md` entry: revision id, date, artifact path + SHA-256, source commit (when available), target unit, and a pending observed-result field. Do not log a build merely because it compiled.
 - Promote only after the tester explicitly reports every required hardware
   assertion passed. Move (do not copy) the exact approved source, artifact,
   hash sidecar, and completed release record into
@@ -47,17 +46,17 @@ goals, status, and open backlog.
   testable position. Treat each iteration as regression coverage unless the
   specification explicitly removes or changes an assertion.
 
-## `.ai/` document roles
+## Task tracking and handoff discipline
 
-- `.ai/HANDOFF.md` — live task manifest only: `Done`, `In progress`,
-  `Remaining`. Replace stale status; don't append history.
-- `.ai/BACKLOG.md` — work that surfaces outside the approved specification
-  during execution. Promote an accepted item to a candidate or remove it
-  when resolved; not a session log.
-- `.ai/LEARNINGS.md` — verified findings and troubleshooting notes only. No
-  narrative recaps or speculative lessons.
-- `.ai/CHANGELOG.md` — concise index of this project's releases only; the
-  root `CHANGELOG.md` remains the flash/build evidence authority.
+All tasks, handoffs, and backlog items are tracked through the root
+`backlog` CLI rather than local `.ai/` directories:
+- Use project prefixes in titles (`[QMK]` or `[ZMK]`) to route items to the
+  correct firmware submodule.
+- Use `backlog task create`, `backlog task edit`, and `backlog task done` to
+  manage task lifecycles, acceptance criteria, and handoffs.
+- Record durable findings or architecture notes in the relevant `<PROJECT>/`
+  documentation (e.g. `DESIGN/` or `QC-IN_PROGRESS/`), and release history
+  in `CHANGELOG.md`.
 
 ## Session end
 

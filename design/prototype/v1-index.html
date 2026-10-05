@@ -1,0 +1,490 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>[hidden]{display:none!important}</style></head><body>
+<title>VT Keymap Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#EDEFF2; --surface:#FFFFFF; --surface-2:#F5F6F8; --ink:#1B1F25; --muted:#5C6570; --line:#D6DBE1;
+  --case:#5A5E66; --case-edge:#474A51; --cap:#34373D; --cap-top:#3D4047; --legend:#ECEEF1; --legend-dim:#8B9099;
+  --base:#A9B0B9; --fn:#35B39C; --sym:#E6A23C; --nav:#9C7FF0; --mcro:#9CC04A;
+  --shift:#5DB2E8; --multi:#F0729A; --long:#C9CED6;
+  --cta:#1B1F25; --cta-ink:#FFFFFF; --focus:#3F7FD6;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#111316; --surface:#191C20; --surface-2:#1F2328; --ink:#E6E9ED; --muted:#98A1AC; --line:#2B3037;
+    --case:#4B4F57; --case-edge:#3A3D43; --cta:#E6E9ED; --cta-ink:#111316; --focus:#78A8F0;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#111316; --surface:#191C20; --surface-2:#1F2328; --ink:#E6E9ED; --muted:#98A1AC; --line:#2B3037;
+  --case:#4B4F57; --case-edge:#3A3D43; --cta:#E6E9ED; --cta-ink:#111316; --focus:#78A8F0;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--ground); color:var(--ink); font:15px/1.5 var(--body); padding-inline:20px; padding-block:20px 48px}
+.wrap{max-width:1320px; margin:0 auto; display:grid; gap:18px}
+button,select{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+h1,h2,h3{font-family:var(--display); margin:0; text-wrap:balance; letter-spacing:-.01em}
+.eyebrow{font:500 11px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+
+/* header */
+.top{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px}
+.brand h1{font-size:30px; line-height:1.1}
+.brand p{margin:6px 0 0; color:var(--muted); max-width:60ch}
+.controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+.field{display:grid; gap:4px}
+.field select{background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:7px 10px; min-width:0}
+.cta{background:var(--cta); color:var(--cta-ink); border:0; border-radius:8px; padding:10px 16px; font-weight:600; cursor:pointer; align-self:flex-end}
+.cta small{font-weight:400; opacity:.75; margin-left:6px}
+
+/* get panel */
+.get{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; display:grid; gap:14px}
+.get ol{margin:0; padding:0; list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; counter-reset:s}
+.get li{counter-increment:s; display:grid; gap:4px; align-content:start}
+.get li::before{content:"Step " counter(s); font:500 11px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.get .note{font-size:13px; color:var(--muted)}
+.linkbtn{background:none; border:0; padding:0; color:var(--focus); cursor:pointer; text-decoration:underline; text-underline-offset:3px; justify-self:start}
+
+/* main grid */
+.main{display:grid; grid-template-columns:230px minmax(0,1fr); gap:18px; align-items:start}
+@media (max-width:900px){ .main{grid-template-columns:1fr} }
+
+/* layer rail */
+.rail{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px; display:grid; gap:4px}
+.rail .eyebrow{padding:6px 8px 8px}
+.layer-btn{display:grid; grid-template-columns:auto 1fr auto; gap:2px 10px; align-items:center; text-align:left; background:none; border:1px solid transparent; border-radius:9px; padding:9px 10px; cursor:pointer}
+.layer-btn:hover{background:var(--surface-2)}
+.layer-btn[aria-pressed="true"]{background:var(--surface-2); border-color:var(--line)}
+.layer-btn .sw{width:12px; height:12px; border-radius:3px; background:var(--h)}
+.layer-btn .nm{font-weight:600}
+.layer-btn .num{font:12px var(--mono); color:var(--muted)}
+.layer-btn .how{grid-column:2 / 4; font-size:12.5px; color:var(--muted); line-height:1.35}
+.rail .foot{font-size:12px; color:var(--muted); padding:10px 8px 4px; border-top:1px solid var(--line); margin-top:6px}
+
+/* stage */
+.stage{display:grid; gap:14px; min-width:0}
+.bar{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between}
+.bar h2{font-size:22px}
+.bar h2 .ln{color:var(--muted); font:500 14px var(--mono); margin-right:8px}
+.lens{display:inline-flex; flex-wrap:wrap; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:3px; gap:2px}
+.lens button{background:none; border:0; border-radius:7px; padding:6px 11px; cursor:pointer; font-size:13.5px; display:inline-flex; gap:7px; align-items:center}
+.lens button[aria-pressed="true"]{background:var(--cta); color:var(--cta-ink)}
+.lens .dot{width:8px; height:8px; border-radius:2px; background:var(--c)}
+.lens .ct{font:12px var(--mono); opacity:.7}
+
+.board-scroll{overflow-x:auto; border-radius:18px}
+.board{min-width:820px; position:relative; aspect-ratio:388/173; background:linear-gradient(180deg,var(--case),var(--case-edge)); border-radius:calc(8/388*100%) / calc(8/173*100%); container-type:inline-size; box-shadow:0 1px 0 rgba(255,255,255,.12) inset, 0 18px 40px -22px rgba(0,0,0,.55)}
+.peekflag{position:absolute; top:.8cqw; right:1.4cqw; font:500 1.05cqw/1 var(--mono); color:#fff; background:var(--h); color:#111; padding:.45cqw .8cqw; border-radius:.5cqw; letter-spacing:.04em}
+.statusline{position:absolute; top:.95cqw; left:2.3cqw; font:500 .95cqw/1 var(--mono); color:rgba(255,255,255,.55); letter-spacing:.08em; text-transform:uppercase}
+
+.key{position:absolute; border-radius:.75cqw; background:linear-gradient(180deg,var(--cap-top),var(--cap)); box-shadow:0 .18cqw 0 #22252a, 0 0 0 .08cqw rgba(0,0,0,.35) inset; color:var(--legend);
+  display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr auto; padding:.35cqw .45cqw .3cqw; cursor:pointer; user-select:none; -webkit-user-select:none; transition:transform .08s, opacity .15s, box-shadow .1s; touch-action:none; overflow:hidden}
+.key:hover{transform:translateY(-.1cqw); box-shadow:0 .28cqw 0 #22252a, 0 0 0 .1cqw rgba(255,255,255,.18) inset}
+.key.sel{box-shadow:0 .18cqw 0 #22252a, 0 0 0 .22cqw #fff inset, 0 0 1.4cqw rgba(255,255,255,.25)}
+.key .tl{grid-area:1/1; font:500 .95cqw/1.05 var(--mono); color:var(--multi); white-space:nowrap}
+.key .tr{grid-area:1/2; justify-self:end; font:500 .95cqw/1.05 var(--mono); color:var(--shift)}
+.key .c{grid-area:2/1/3/3; align-self:center; justify-self:center; text-align:center; font-weight:500; font-size:1.55cqw; line-height:1.05; overflow-wrap:anywhere}
+.key .c.m{font-size:1.15cqw}
+.key .c.s{font-size:.92cqw; line-height:1.1}
+.key .c.to{color:var(--h)}
+.key .band{grid-area:3/1/4/3; margin:0 -.2cqw; border-radius:.35cqw; font:500 .82cqw/1 var(--mono); padding:.2cqw .3cqw; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.band.mod{background:rgba(255,255,255,.1); color:#D5D9DF}
+.band.lay{background:var(--h); color:#15171A; font-weight:500}
+.band.long{background:repeating-linear-gradient(135deg,rgba(255,255,255,.16) 0 .35cqw,rgba(255,255,255,.05) .35cqw .7cqw); color:#E3E6EA}
+.key.stacked{grid-template-rows:1fr; padding:.1cqw .4cqw; border-radius:.5cqw}
+.key.stacked .c{font-size:1cqw}
+.key.trans{background:transparent; box-shadow:0 0 0 .1cqw rgba(255,255,255,.22) inset; }
+.key.trans .c,.key.trans .tl,.key.trans .tr,.key.trans .band{opacity:.38}
+.key.none{background:#2E3136; box-shadow:0 .12cqw 0 #22252a; cursor:default}
+.key.none:hover{transform:none}
+.key.held{background:var(--h); color:#15171A; box-shadow:0 0 0 .1cqw rgba(0,0,0,.3) inset; transform:translateY(.12cqw)}
+.key.held .c{font-size:.95cqw; font-family:var(--mono); color:#15171A}
+.key.dim{opacity:.22}
+.key.lensed .c{font-size:1.5cqw}
+.key.lensed.l-shift .c{color:var(--shift)}
+.key.lensed.l-multi .c{color:var(--multi)}
+.key.lensed.l-hold .c{color:#E3E6EA}
+.key.lensed.l-hold.tolayer .c{color:var(--h)}
+.key.lensed .c small{display:block; font:500 .85cqw var(--mono); opacity:.75; margin-top:.2cqw}
+
+.hint{font-size:13px; color:var(--muted); display:flex; flex-wrap:wrap; gap:6px 18px}
+.hint kbd{font:12px var(--mono); border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 5px; background:var(--surface)}
+
+/* decoder */
+.decoder{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; display:grid; grid-template-columns:auto 1fr; gap:22px; align-items:center}
+@media (max-width:640px){ .decoder{grid-template-columns:1fr} }
+.anat{position:relative; width:250px; height:150px; margin-inline:auto}
+.anat .bigcap{position:absolute; left:75px; top:22px; width:100px; height:100px; border-radius:12px; background:linear-gradient(180deg,#3D4047,#34373D); box-shadow:0 3px 0 #22252a; color:#ECEEF1; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr auto; padding:7px 8px 6px}
+.bigcap .tl{font:500 14px var(--mono); color:var(--multi)} .bigcap .tr{justify-self:end; font:500 14px var(--mono); color:var(--shift)}
+.bigcap .c{grid-column:1/3; place-self:center; font-size:30px; font-weight:500}
+.bigcap .band{grid-column:1/3; background:var(--sym); color:#15171A; border-radius:5px; font:500 11px/1 var(--mono); padding:4px; text-align:center}
+.anat .lb{position:absolute; font:500 11px/1.25 var(--mono); color:var(--muted)}
+.anat .lb b{display:block; color:var(--ink); font-family:var(--body); font-size:12.5px}
+.decoder ul{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px 22px}
+.decoder li{display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:start; font-size:13.5px}
+.decoder li svg{margin-top:2px; color:var(--ink)}
+.decoder li b{display:block}
+.decoder li span{color:var(--muted)}
+
+/* inspector */
+.insp{display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:18px}
+@media (max-width:1100px){ .insp{grid-template-columns:1fr} }
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; display:grid; gap:14px; align-content:start}
+.ihead{display:flex; gap:16px; align-items:center}
+.minicap{flex:none; width:64px; height:64px; border-radius:10px; background:linear-gradient(180deg,#3D4047,#34373D); color:#ECEEF1; display:grid; place-items:center; font-weight:500; font-size:20px; box-shadow:0 3px 0 #22252a; text-align:center; line-height:1.05; padding:4px; overflow-wrap:anywhere}
+.minicap.sm{font-size:13px}
+.ihead h3{font-size:21px}
+.ihead .sub{color:var(--muted); font-size:13.5px}
+.pin{font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; padding:4px 7px; border-radius:5px; background:var(--surface-2); border:1px solid var(--line); color:var(--muted); margin-left:6px; vertical-align:3px}
+.glist{display:grid; gap:0; margin:0; padding:0; list-style:none}
+.glist li{display:grid; grid-template-columns:78px minmax(0,1fr) auto; gap:14px; align-items:center; padding:11px 0; border-top:1px solid var(--line)}
+.glist li:first-child{border-top:0}
+.glist .gn{font-weight:600}
+.glist .gd{font-size:13px; color:var(--muted)}
+.out{font:500 15px var(--mono); padding:5px 10px; border-radius:7px; background:var(--surface-2); border:1px solid var(--line); white-space:nowrap; justify-self:end}
+.out.lay{background:color-mix(in srgb, var(--h) 20%, var(--surface)); border-color:color-mix(in srgb, var(--h) 55%, var(--line))}
+.tsvg{color:var(--c, var(--ink))}
+.empty{color:var(--muted); font-size:14px}
+.notes{font-size:13.5px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px}
+
+.across{margin:0; padding:0; list-style:none; display:grid; gap:6px}
+.across button{width:100%; display:grid; grid-template-columns:12px minmax(0,1fr) auto; gap:4px 10px; align-items:center; text-align:left; background:var(--surface-2); border:1px solid transparent; border-radius:9px; padding:9px 12px; cursor:pointer}
+.across button:hover{border-color:var(--line)}
+.across button[aria-current="true"]{border-color:var(--h); background:color-mix(in srgb, var(--h) 12%, var(--surface))}
+.across .sw{width:12px; height:12px; border-radius:3px; background:var(--h)}
+.across .ln{font-weight:600; font-size:14px}
+.across .ln span{font-weight:400; color:var(--muted); font-size:12.5px; margin-left:6px}
+.across .v{font:500 14px var(--mono); display:flex; gap:6px; align-items:center; justify-self:end; flex-wrap:wrap; justify-content:flex-end}
+.across .v .x{font-size:11.5px; padding:2px 6px; border-radius:5px; background:var(--surface); border:1px solid var(--line); color:var(--muted)}
+.across .v .x.m{color:var(--multi)} .across .v .x.s{color:var(--shift)}
+.across .v.muted{color:var(--muted); font-family:var(--body); font-size:13px; font-weight:400}
+.foot{font-size:12px; color:var(--muted); text-align:center}
+@media (prefers-reduced-motion: reduce){ .key{transition:none} }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">VT Keymap Collection</div>
+      <h1>Keymap Explorer</h1>
+      <p>See every layer and every gesture on each key before you flash it. Hover to inspect, hold to peek.</p>
+    </div>
+    <div class="controls">
+      <label class="field"><span class="eyebrow">Keyboard</span>
+        <select id="kb"><option>Keychron B1 Pro · ZMK</option></select></label>
+      <label class="field"><span class="eyebrow">OS</span>
+        <select id="os"><option>macOS</option></select></label>
+      <label class="field"><span class="eyebrow">Release</span>
+        <select id="ver"><option>v0.24 · Sync Layers</option></select></label>
+      <button class="cta" id="getBtn" aria-expanded="false" aria-controls="get">Get this layout<small>v0.24</small></button>
+    </div>
+  </header>
+
+  <section class="get" id="get" hidden>
+    <h3 style="font-size:18px">Flash v0.24 to your B1 Pro</h3>
+    <ol>
+      <li><b>Download the release</b><span class="note">Keychron B1 Pro · ZMK · macOS layers · .zip</span><span class="note">(Download is disabled in this prototype.)</span></li>
+      <li><b>Enter the bootloader</b><span class="note">Hold Esc (home row) to reach Function, then long-press Boot for 3 seconds.</span><button class="linkbtn" id="showBoot">Show me the Boot key</button></li>
+      <li><b>Flash the firmware</b><span class="note">Follow the release notes in the .zip for your OS. Your old layout stays on the board until you flash.</span></li>
+    </ol>
+  </section>
+
+  <div class="main">
+    <nav class="rail" aria-label="Layers">
+      <div class="eyebrow">Layers</div>
+      <div id="layers" style="display:grid;gap:4px"></div>
+      <div class="foot">Each layer lists how you reach it. Layer colors match the bands on the keys.</div>
+    </nav>
+
+    <div class="stage">
+      <div class="bar">
+        <h2 id="layerTitle"></h2>
+        <div class="lens" id="lens" role="group" aria-label="Show gesture"></div>
+      </div>
+
+      <div class="board-scroll"><div class="board" id="board"></div></div>
+      <div class="hint">
+        <span>Hover a key to inspect · click to pin</span>
+        <span>Press and hold a key with a colored band to peek at that layer</span>
+        <span>Hold <kbd>Shift</kbd> on your keyboard to see shifted symbols</span>
+      </div>
+
+      <section class="decoder" aria-label="How to read a key">
+        <div class="anat" aria-hidden="true">
+          <div class="bigcap"><span class="tl">²)</span><span class="tr">:</span><span class="c">J</span><span class="band">▸ Sym</span></div>
+          <div class="lb" style="left:0;top:14px;width:70px;text-align:right">²)<b>Multi-tap</b></div>
+          <div class="lb" style="left:182px;top:14px">:<b>Shift</b></div>
+          <div class="lb" style="left:0;top:62px;width:70px;text-align:right">center<b>Tap</b></div>
+          <div class="lb" style="left:182px;top:98px">band<b>Hold</b></div>
+        </div>
+        <ul id="decoderList"></ul>
+      </section>
+
+      <div class="insp">
+        <section class="panel" id="gestures" aria-live="polite"></section>
+        <section class="panel" id="acrossPanel"></section>
+      </div>
+    </div>
+  </div>
+  <p class="foot">Redesign prototype · layout data from the Keychron B1 Pro macOS keymap (v0.24) · keyboard geometry traced from the B1 Pro ANSI plate</p>
+</div>
+
+<script>
+/* ---------- geometry (388 × 173 units) ---------- */
+const GRID=[[[8.27,16.01,47.5,38.96],[50.19,15.89,73.04,38.84],[75.73,15.77,98.58,38.84],[101.27,15.65,124.12,38.71],[126.69,15.53,149.54,38.59],[152.23,15.4,175.08,38.47],[177.77,15.28,200.62,38.35],[203.31,15.16,226.15,38.23],[228.84,15.16,251.57,38.23],[254.26,15.04,277.11,38.11],[279.8,14.92,302.65,37.99],[305.34,14.8,328.19,37.86],[330.88,14.68,353.73,37.74],[355.7,14.55,378.54,37.62]],
+[[8.39,41.07,31.24,64.13],[33.33,40.94,56.18,64.01],[58.14,40.94,80.99,64.01],[82.96,40.82,105.81,63.89],[107.9,40.7,130.75,63.77],[132.71,40.58,155.56,63.65],[157.53,40.46,180.38,63.52],[182.47,40.34,205.31,63.4],[207.28,40.21,230.13,63.28],[232.1,40.21,254.95,63.16],[257.03,40.09,279.88,63.16],[281.85,39.97,304.7,63.04],[306.67,39.85,329.51,62.92],[331.6,39.73,379.27,62.79]],
+[[8.51,66.12,43.77,89.31],[45.86,66,68.71,89.06],[70.67,66,93.52,88.94],[95.49,65.88,118.34,88.94],[120.43,65.75,143.27,88.82],[145.24,65.63,168.09,88.7],[170.06,65.51,192.91,88.58],[194.99,65.39,217.84,88.46],[219.81,65.39,242.66,88.46],[244.75,65.27,267.47,88.33],[269.56,65.15,292.41,88.21],[294.38,65.02,317.23,88.09],[319.31,64.9,342.04,87.97],[344.13,64.78,379.39,87.85]],
+[[8.63,91.17,50.15,114.36],[52.12,91.17,74.97,114.12],[77.06,91.05,99.79,114.12],[101.87,90.93,124.72,114],[126.69,90.81,149.54,113.87],[151.63,90.69,174.35,113.75],[176.44,90.56,199.29,113.63],[201.26,90.56,224.11,113.51],[226.19,90.44,249.04,113.51],[251.01,90.32,273.86,113.39],[275.83,90.2,298.67,113.27],[300.76,90.08,323.49,113.14],[325.58,89.83,379.51,113.02]],
+[[8.75,116.23,62.68,139.41],[64.65,116.1,87.5,139.17],[89.59,116.1,112.31,139.17],[114.4,115.98,137.25,139.05],[139.22,115.86,162.07,138.93],[164.15,115.74,186.88,138.81],[188.97,115.62,211.82,138.68],[213.79,115.5,236.63,138.56],[238.72,115.5,261.45,138.56],[263.54,115.37,286.39,138.44],[288.35,115.25,311.2,138.32],[313.29,115.01,379.63,138.2]],
+[[8.87,141.52,44.13,164.59],[46.1,141.4,75.21,164.47],[77.18,141.16,106.29,164.34],[108.26,140.55,249.16,164.1],[251.25,140.55,280.24,163.62],[282.21,140.43,305.06,163.49],[307.15,140.31,330,163.37],[[331.96,140.31,354.81,152.3],[331.96,151.25,354.81,163.25]],[356.78,140.06,379.63,163.13]]];
+
+/* ---------- structured binding model ----------
+   t  tap output          sh  shifted output
+   h  hold → modifier     hl  hold → layer (while held)
+   x2 / x3  double / triple tap
+   lp long-press output (lpt = time)
+   to tap → switch layer  os  tap → one-shot layer (next key only)
+   n  free-text note */
+const T='T', k=(t,o={})=>({t,...o});
+const L={
+ base:{num:0,name:'Base',short:'Base',hue:'var(--base)',how:'Default layer'},
+ fn:{num:1,name:'Function',short:'Fn',hue:'var(--fn)',how:'Hold Esc (home row) or hold Fn'},
+ sym:{num:2,name:'Symbols',short:'Sym',hue:'var(--sym)',how:'Hold G or H'},
+ nav:{num:3,name:'Navigation',short:'Nav',hue:'var(--nav)',how:'Hold Space or hold \\'},
+ mcro:{num:5,name:'Macro Selector',short:'Macro',hue:'var(--mcro)',how:'Tap Fn · lasts one keypress'},
+};
+const HELD={fn:['3-0','5-5'],sym:['3-5','3-6'],nav:['5-3','2-13'],mcro:['5-5']};
+const N=null;
+L.base.rows=[
+ [k('Esc',{h:'Caps Lock'}),k('☀−',{n:'Brightness down'}),k('☀+',{n:'Brightness up'}),k('⧉',{n:'Mission Control'}),k('Launch­pad'),k('Spot­light'),k('Lock'),k('⏮',{n:'Previous track'}),k('⏯',{n:'Play / pause'}),k('⏭',{n:'Next track'}),k('Mute'),k('Vol −'),k('Vol +'),k('Del')],
+ [k('`',{sh:'~'}),k('1',{sh:'!'}),k('2',{sh:'@'}),k('3',{sh:'#'}),k('4',{sh:'$'}),k('5',{sh:'%'}),k('6',{sh:'^'}),k('7',{sh:'&'}),k('8',{sh:'*'}),k('9',{sh:'('}),k('0',{sh:')'}),k('-',{sh:'_'}),k('=',{sh:'+'}),k('⌫ Back­space')],
+ [k('Tab',{h:'Hyper',n:'Hyper = Ctrl + Shift + ⌘ + Option pressed together.'}),k('Q'),k('W'),k('E'),k('R'),k('T'),k('Y'),k('U'),k('I'),k('O'),k('P'),k('[',{sh:'{'}),k(']',{sh:'}'}),k('\\',{sh:'|',hl:'nav'})],
+ [k('Esc',{hl:'fn'}),k('A',{h:'∧'}),k('S',{h:'⌘'}),k('D',{h:'⌥'}),k('F',{h:'⇧'}),k('G',{hl:'sym'}),k('H',{hl:'sym'}),k('J',{h:'⇧'}),k('K',{h:'⌥'}),k('L',{h:'⌘'}),k(';',{h:'∧',sh:':'}),k("'",{sh:'"'}),k('Enter')],
+ [k('⇧ Shift'),k('Z'),k('X'),k('C'),k('V'),k('B'),k('N'),k('M'),k(',',{sh:'<'}),k('.',{sh:'>'}),k('/',{sh:'?'}),k('⇧ Shift')],
+ [k('∧'),k('⌥'),k('⌘'),k('Space',{hl:'nav'}),k('⌘'),k('Fn',{os:'mcro',hl:'fn'}),k('←'),[k('↑'),k('↓')],k('→')]];
+const F13=['F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24'].map(x=>k(x));
+L.fn.rows=[
+ [k('Base',{to:'base'}),...['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12'].map(x=>k(x)),k('Del')],
+ [T,k('BT 1',{x2:'Pair BT 1',n:'Tap selects Bluetooth profile 1. Double-tap starts pairing.'}),k('BT 2',{x2:'Pair BT 2'}),k('BT 3',{x2:'Pair BT 3'}),k('2.4G',{n:'Switch to the 2.4 GHz dongle.'}),T,T,k('×'),k('÷'),k('+'),k('−'),k('Boot',{lp:'Bootloader',lpt:'3 s',n:'Tap does nothing. Hold 3 seconds to enter the bootloader for flashing.'}),k('Search'),T],
+ [T,T,T,T,k('2.4G'),T,k('Del'),k('7'),k('8'),k('9'),k('⌫'),T,T,N],
+ [N,k('∧'),k('⌘'),k('⌥'),k('⇧'),T,k('Tab'),k('4'),k('5'),k('6'),k('Enter'),T,T],
+ [T,T,T,T,T,T,k(','),k('1'),k('2'),k('3'),k('.'),k('⌃⌘Space',{n:'Opens the emoji & symbols picker.'})],
+ [T,T,T,k('0'),k('∧'),N,k('Home'),[k('PgUp'),k('PgDn')],k('End')]];
+L.sym.rows=[
+ [k('Base',{to:'base'}),...F13,T],
+ [T,T,T,T,T,T,T,T,T,T,k('⌘0',{n:'Reset zoom'}),k('⌘−',{n:'Zoom out'}),k('⌘=',{n:'Zoom in'}),T],
+ [k('`'),k('!'),k('@'),k('#'),k('$'),k('%'),k('^'),k('&'),k('*'),k('-',{x2:'_'}),k('=',{x2:'+'}),T,T,T],
+ [k('~'),k('∧'),k('⌘'),k('⌥'),k('⇧'),N,N,k('(',{x2:')',x3:'()',n:'Triple-tap types both brackets.'}),k('{',{x2:'}',x3:'{}'}),k('[',{x2:']',x3:'[]'}),T,T,k('=')],
+ [T,N,N,N,N,N,N,N,k('<'),k('>'),k('?'),k('⌃⌘Space',{n:'Opens the emoji & symbols picker.'})],
+ [T,T,T,T,T,T,k('←'),[k('↑'),k('↓')],k('→')]];
+L.nav.rows=[
+ [k('Base',{to:'base'}),...F13,T],
+ [N,N,N,k('#'),N,k('Wheel ↓'),N,N,k('Space'),N,k('Btn 1'),k('Mouse ↑'),k('Btn 2'),N],
+ [N,k('⌘Q'),k('⌘W'),k('Wheel ←'),k('Wheel ↑'),k('Wheel →'),k('⌘Y'),k('Del'),k('↑'),k('⌫'),k('Mouse ←'),k('Mouse ↓'),k('Mouse →'),N],
+ [N,k('∧'),k('⌘'),k('⌥'),k('⇧'),N,k('Home'),k('←'),k('↓'),k('→'),k('End'),N,N],
+ [N,k('⌘Z'),k('⌘X'),k('⌘C',{x2:'⌘⇧C',x3:'⌃⇧C',n:'Copy · double-tap copies without formatting · triple-tap copies in terminal.'}),k('⌘V',{x2:'⌃V',x3:'⌃⇧V',n:'Paste · double and triple tap send the Ctrl variants for terminal apps.'}),k('⌘B'),k('PgUp'),k('PgDn'),k('⌃⇧Tab',{n:'Previous tab'}),k('⌃Tab',{n:'Next tab'}),k('⌘⇧/',{n:'Help menu search'}),N],
+ [k('Speed 1'),k('Speed 2'),k('Speed 3'),N,N,N,k('←'),[k('↑'),k('↓')],k('→')]];
+const blank=n=>Array(n).fill(N);
+L.mcro.rows=[[k('Base',{to:'base'}),...blank(13)],[N,k('Function',{to:'fn'}),k('Symbols',{to:'sym'}),k('Naviga­tion',{to:'nav'}),k('Reserved',{to:'res'}),...blank(9)],blank(14),blank(13),blank(12),[N,N,N,N,N,N,N,[N,N],N]];
+const ORDER=['base','fn','sym','nav','mcro'];
+
+/* ---------- helpers ---------- */
+const raw=(lid,r,c,s)=>{let v=L[lid].rows[r][c]; if(Array.isArray(v)) v=v[s??0]; return v};
+function resolve(lid,r,c,s){
+  const v=raw(lid,r,c,s), id=kid(r,c,s);
+  if((HELD[lid]||[]).includes(id)) return {kind:'held'};
+  if(v===T) return {kind:'trans', b:raw('base',r,c,s)};
+  if(v==null) return {kind:'none'};
+  return {kind:'key', b:v};
+}
+const kid=(r,c,s)=>s==null?`${r}-${c}`:`${r}-${c}-${s}`;
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const clean=s=>String(s).replace(/­/g,'');
+function keyName(r,c,s){
+  const b=raw('base',r,c,s); let n=clean(b.t);
+  if(r===3&&c===0) n='Esc (home row)'; if(r===0&&c===0) n='Esc (top row)';
+  if(r===4) n= c===0?'Left Shift': c===11?'Right Shift':n;
+  if(r===5&&c===2) n='Left ⌘'; if(r===5&&c===4) n='Right ⌘';
+  return n;
+}
+function gestures(b){
+  const g=[];
+  if(!b) return g;
+  if(b.to) g.push({g:'tap',name:'Tap',d: b.to==='res'?'Locks the Reserved layer':'Locks the '+L[b.to].name+' layer on',out:'⇒ '+(b.to==='res'?'Reserved':L[b.to].name),lay:b.to==='res'?null:b.to});
+  else if(b.os) g.push({g:'os',name:'Tap',d:'Next key comes from '+L[b.os].name,out:L[b.os].name+' ×1',lay:b.os});
+  else if(b.lp) g.push({g:'tap',name:'Tap',d:'No action on a short press',out:'—'});
+  else g.push({g:'tap',name:'Tap',d:'Press and release',out:clean(b.t)});
+  if(b.sh) g.push({g:'shift',name:'Shift + tap',d:'With either Shift held',out:b.sh});
+  if(b.x2) g.push({g:'x2',name:'Double-tap',d:'Two quick taps',out:b.x2});
+  if(b.x3) g.push({g:'x3',name:'Triple-tap',d:'Three quick taps',out:b.x3});
+  if(b.hl) g.push({g:'hold',name:'Hold',d:'Layer is active while held',out:L[b.hl].name+' layer',lay:b.hl});
+  if(b.h) g.push({g:'hold',name:'Hold',d:'Acts as a modifier while held',out:b.h});
+  if(b.lp) g.push({g:'long',name:'Long-press',d:'Hold for '+b.lpt,out:b.lp,time:b.lpt});
+  return g;
+}
+const GC={tap:'var(--ink)',os:'var(--ink)',shift:'var(--shift)',x2:'var(--multi)',x3:'var(--multi)',hold:'var(--ink)',long:'var(--muted)'};
+function timing(g){
+  const P=x=>`<rect x="${x}" y="4" width="6" height="11" rx="1.5" fill="currentColor"/>`;
+  let body='<line x1="2" y1="16.5" x2="70" y2="16.5" stroke="currentColor" stroke-opacity=".3"/>';
+  if(g==='tap') body+=P(8);
+  if(g==='x2') body+=P(8)+P(19);
+  if(g==='x3') body+=P(8)+P(19)+P(30);
+  if(g==='shift') body+=`<rect x="4" y="12" width="30" height="3" rx="1" fill="currentColor" fill-opacity=".5"/>`+P(16).replace('height="11"','height="7"');
+  if(g==='hold') body+=`<rect x="8" y="4" width="54" height="11" rx="1.5" fill="currentColor"/><line x1="26" y1="1" x2="26" y2="19" stroke="var(--surface)" stroke-width="1.5" stroke-dasharray="2 2"/>`;
+  if(g==='long') body+=`<rect x="6" y="4" width="62" height="11" rx="1.5" fill="currentColor" fill-opacity=".45"/><line x1="58" y1="1" x2="58" y2="19" stroke="currentColor" stroke-width="1.5"/>`;
+  if(g==='os') body+=P(8)+`<path d="M20 9.5h38l-4-3.5M58 9.5l-4 3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 2"/>`;
+  return `<svg class="tsvg" width="72" height="20" viewBox="0 0 72 20" aria-hidden="true">${body}</svg>`;
+}
+
+/* ---------- state ---------- */
+let state={layer:'base',lens:'all',pinned:'3-7',hover:null,peek:null};
+try{const s=JSON.parse(localStorage.getItem('kx')||'{}'); if(s.layer&&L[s.layer]) state.layer=s.layer; if(s.lens) state.lens=s.lens;}catch(e){}
+const save=()=>{try{localStorage.setItem('kx',JSON.stringify({layer:state.layer,lens:state.lens}))}catch(e){}};
+const viewLayer=()=>state.peek||state.layer;
+let shiftHeld=false;
+const effLens=()=>shiftHeld&&state.lens==='all'?'shift':state.lens;
+
+/* ---------- rendering ---------- */
+const board=document.getElementById('board');
+function capHTML(res,lens,lid){
+  if(res.kind==='none') return {cls:'none',html:''};
+  if(res.kind==='held') return {cls:'held',html:`<span class="c">held</span>`};
+  const b=res.b, cls=[res.kind==='trans'?'trans':''];
+  const lenLen=s=>clean(s).length;
+  const size=s=>lenLen(s)<=2?'':lenLen(s)<=5?'m':'s';
+  if(lens!=='all'&&res.kind==='key'){
+    let v=null, sub='', lay=null;
+    if(lens==='tap'){v=b.to?'⇒ '+(L[b.to]?.short||'Res'):b.os?'Macro ×1':b.lp?null:b.t; lay=b.to||b.os}
+    if(lens==='shift') v=b.sh;
+    if(lens==='multi'&&b.x2){v=b.x2; if(b.x3) sub='3× '+b.x3}
+    if(lens==='hold'){ if(b.hl){v='▸ '+L[b.hl].short; lay=b.hl} else if(b.h) v=b.h; else if(b.lp){v=b.lp; sub=b.lpt}}
+    if(v==null) return {cls:'dim',html:`<span class="c ${size(b.t)}">${esc(b.t)}</span>`};
+    cls.push('lensed','l-'+lens); if(lay&&lens==='hold') cls.push('tolayer');
+    const st=lay?` style="--h:${L[lay]?.hue||'#fff'}"`:'';
+    return {cls:cls.join(' '),html:`<span class="c ${size(v)} ${lay&&lens==='tap'?'to':''}"${st}>${esc(v)}${sub?`<small>${esc(sub)}</small>`:''}</span>`,h:lay&&L[lay]?.hue};
+  }
+  if(lens!=='all'&&res.kind==='trans') return {cls:'trans dim',html:''};
+  let html='';
+  if(b.os) html+=`<span class="tl" style="color:${L[b.os].hue}">⇢${L[b.os].short}</span>`;
+  if(b.x2){ const t=b.x3&&(clean(b.x2)+clean(b.x3)).length<=4?`²${b.x2} ³${b.x3}`:`²${b.x2}${b.x3?'…':''}`; html+=`<span class="tl">${esc(t)}</span>`}
+  if(b.sh) html+=`<span class="tr">${esc(b.sh)}</span>`;
+  let label=b.t, isTo=false, hue=null;
+  if(b.to){label='⇒ '+b.t; isTo=true; hue=b.to==='res'?'#C9CED6':L[b.to].hue}
+  html+=`<span class="c ${size(label)} ${isTo?'to':''}">${esc(label)}</span>`;
+  if(b.hl) html+=`<span class="band lay" style="--h:${L[b.hl].hue}">▸ ${L[b.hl].short}</span>`;
+  else if(b.h) html+=`<span class="band mod">${esc(b.h)}</span>`;
+  else if(b.lp) html+=`<span class="band long">${esc(b.lpt)} ▸ ${esc(b.lp)}</span>`;
+  return {cls:cls.join(' '),html,h:hue};
+}
+function renderBoard(){
+  const lid=viewLayer(), lens=effLens(); let out='';
+  if(state.peek) out+=`<div class="peekflag" style="--h:${L[lid].hue}">PEEKING · ${L[lid].name.toUpperCase()} · release to return</div>`;
+  out+=`<div class="statusline">B1 Pro · layer ${L[lid].num} · ${L[lid].name}</div>`;
+  GRID.forEach((row,r)=>row.forEach((g,c)=>{
+    const subs=Array.isArray(g[0])?g.map((gg,s)=>[gg,s]):[[g,null]];
+    subs.forEach(([gg,s])=>{
+      const id=kid(r,c,s), res=resolve(lid,r,c,s), cap=capHTML(res,lens,lid);
+      const [x0,y0,x1,y1]=gg;
+      const sel=(state.hover||state.pinned)===id?' sel':'';
+      const st=`left:${x0/388*100}%;top:${y0/173*100}%;width:${(x1-x0)/388*100}%;height:${(y1-y0)/173*100}%;--h:${res.kind==='held'?L[lid].hue:(cap.h||'#fff')}`;
+      const b=res.b, hl=res.kind==='key'&&b&&b.hl?` data-hl="${b.hl}"`:'';
+      out+=`<div class="key ${cap.cls}${s!=null?' stacked':''}${sel}" data-id="${id}"${hl} style="${st}" role="button" tabindex="${res.kind==='none'?-1:0}" aria-label="${esc(keyName(r,c,s))}">${cap.html}</div>`;
+    });
+  }));
+  board.innerHTML=out;
+}
+function renderLayers(){
+  document.getElementById('layers').innerHTML=ORDER.map(id=>{const l=L[id];
+    return `<button class="layer-btn" data-layer="${id}" aria-pressed="${state.layer===id}" style="--h:${l.hue}"><span class="sw"></span><span class="nm">${l.name}</span><span class="num">${String(l.num).padStart(2,'0')}</span><span class="how">${esc(l.how)}</span></button>`}).join('');
+  const l=L[viewLayer()];
+  document.getElementById('layerTitle').innerHTML=`<span class="ln">${String(l.num).padStart(2,'0')}</span>${l.name} layer`;
+}
+function lensCounts(lid){
+  const c={all:0,tap:0,shift:0,multi:0,hold:0};
+  L[lid].rows.flat(2).forEach(b=>{ if(!b||b===T) return; c.all++; if(!b.lp) c.tap++; if(b.sh) c.shift++; if(b.x2) c.multi++; if(b.h||b.hl||b.lp) c.hold++; });
+  return c;
+}
+function renderLens(){
+  const c=lensCounts(viewLayer()), eff=effLens();
+  const items=[['all','All','var(--ink)'],['tap','Tap','var(--legend-dim)'],['shift','Shift','var(--shift)'],['multi','Multi-tap','var(--multi)'],['hold','Hold','var(--long)']];
+  document.getElementById('lens').innerHTML=items.map(([id,n,col])=>`<button data-lens="${id}" aria-pressed="${eff===id}" style="--c:${col}">${id!=='all'?'<span class="dot"></span>':''}${n}${id!=='all'?` <span class="ct">${c[id]}</span>`:''}</button>`).join('');
+}
+function parseId(id){const [r,c,s]=id.split('-').map(Number); return [r,c,Number.isNaN(s)?null:s]}
+function renderInspector(){
+  const id=state.hover||state.pinned, gp=document.getElementById('gestures'), ap=document.getElementById('acrossPanel');
+  if(!id){gp.innerHTML='<p class="empty">Hover or click a key to see everything it does.</p>'; ap.innerHTML=''; return}
+  const [r,c,s]=parseId(id), lid=viewLayer(), res=resolve(lid,r,c,s), name=keyName(r,c,s);
+  const pinned=!state.hover||state.hover===state.pinned;
+  let b=res.b, gl=[], sub='';
+  if(res.kind==='key'){gl=gestures(b); sub=`${gl.length} ${gl.length===1?'behavior':'behaviors'} on ${L[lid].name}`}
+  else if(res.kind==='trans'){gl=gestures(b); sub=`Falls through to Base on ${L[lid].name}`}
+  else if(res.kind==='held') sub=`This is the key you hold to reach ${L[lid].name}`;
+  else sub=`No action on ${L[lid].name}`;
+  const cap=res.kind==='key'||res.kind==='trans'?clean(b.to?'⇒ '+b.t:b.t):res.kind==='held'?'held':'—';
+  let h=`<div class="ihead"><div class="minicap ${cap.length>3?'sm':''}">${esc(cap)}</div><div><h3>${esc(name)}${pinned&&state.pinned===id?'<span class="pin">Pinned</span>':''}</h3><div class="sub">${esc(sub)}</div></div></div>`;
+  if(gl.length){
+    h+='<ul class="glist">'+gl.map(g=>`<li style="--c:${GC[g.g]}"><span>${timing(g.g)}</span><span><div class="gn">${g.name}</div><div class="gd">${esc(g.d)}</div></span><span class="out ${g.lay?'lay':''}" style="${g.lay?`--h:${L[g.lay].hue}`:''}">${esc(g.out)}</span></li>`).join('')+'</ul>';
+  }
+  if(b&&b.n&&res.kind!=='none') h+=`<div class="notes">${esc(b.n)}</div>`;
+  gp.innerHTML=h;
+  // across layers
+  let a=`<div><div class="eyebrow">Same key, every layer</div><h3 style="font-size:18px;margin-top:6px">${esc(name)} across layers</h3></div><ul class="across">`;
+  ORDER.forEach(l=>{
+    const rr=resolve(l,r,c,s); let v='';
+    if(rr.kind==='key'){const bb=rr.b; const main=bb.to?'⇒ '+clean(bb.t):bb.os?clean(bb.t):bb.lp?'—':clean(bb.t);
+      v=`<span class="v">${esc(main)}${bb.sh?`<span class="x s">⇧ ${esc(bb.sh)}</span>`:''}${bb.x2?`<span class="x m">2× ${esc(bb.x2)}</span>`:''}${bb.x3?`<span class="x m">3× ${esc(bb.x3)}</span>`:''}${bb.hl?`<span class="x">hold ▸ ${L[bb.hl].short}</span>`:bb.h?`<span class="x">hold ${esc(bb.h)}</span>`:''}${bb.lp?`<span class="x">${esc(bb.lpt)} ${esc(bb.lp)}</span>`:''}</span>`}
+    else if(rr.kind==='trans') v=`<span class="v muted">same as Base</span>`;
+    else if(rr.kind==='held') v=`<span class="v muted">held to get here</span>`;
+    else v=`<span class="v muted">no action</span>`;
+    a+=`<li><button data-goto="${l}" aria-current="${l===lid}" style="--h:${L[l].hue}"><span class="sw"></span><span class="ln">${L[l].name}<span>${esc(L[l].how)}</span></span>${v}</button></li>`;
+  });
+  ap.innerHTML=a+'</ul>';
+}
+function renderDecoder(){
+  const ic=g=>timing(g).replace('width="72"','width="54"').replace('height="20"','height="15"');
+  const items=[
+    ['tap','Tap','Center legend. Colored ⇒ means the tap switches layers.'],
+    ['shift','Shift','Top-right, blue. What you get with Shift held.'],
+    ['x2','Multi-tap','Top-left, pink. ² = double-tap, ³ = triple-tap.'],
+    ['hold','Hold','Bottom band. Gray = modifier. Colored = layer, in that layer’s color.'],
+    ['long','Long-press','Striped band with the time to hold.'],
+    ['os','One-shot','Top-left arrow ⇢. Tap once, next key comes from that layer.'],
+  ];
+  document.getElementById('decoderList').innerHTML=items.map(([g,n,d])=>`<li><span style="color:${GC[g]}">${ic(g)}</span><span><b>${n}</b><span>${d}</span></span></li>`).join('');
+}
+function renderAll(){renderLayers();renderLens();renderBoard();renderInspector()}
+
+/* ---------- interaction ---------- */
+let pressTimer=null, pressId=null, peeking=false;
+board.addEventListener('pointerover',e=>{const k=e.target.closest('.key'); if(!k||k.classList.contains('none')) return; if(state.hover!==k.dataset.id){state.hover=k.dataset.id; markSel(); renderInspector()}});
+board.addEventListener('pointerleave',()=>{ if(state.hover){state.hover=null; markSel(); renderInspector()} });
+board.addEventListener('pointerdown',e=>{const k=e.target.closest('.key'); if(!k||k.classList.contains('none')) return; pressId=k.dataset.id;
+  if(k.dataset.hl){ pressTimer=setTimeout(()=>{peeking=true; state.peek=k.dataset.hl; renderAll()},230) } });
+window.addEventListener('pointerup',()=>{
+  clearTimeout(pressTimer);
+  if(peeking){peeking=false; state.peek=null; renderAll(); pressId=null; return}
+  if(pressId){state.pinned=pressId; state.hover=null; pressId=null; markSel(); renderInspector()}
+});
+board.addEventListener('keydown',e=>{const k=e.target.closest('.key'); if(k&&(e.key==='Enter'||e.key===' ')){e.preventDefault(); state.pinned=k.dataset.id; markSel(); renderInspector()}});
+board.addEventListener('focusin',e=>{const k=e.target.closest('.key'); if(k){state.hover=k.dataset.id; renderInspector()}});
+function markSel(){const cur=state.hover||state.pinned; board.querySelectorAll('.key').forEach(k=>k.classList.toggle('sel',k.dataset.id===cur))}
+document.getElementById('layers').addEventListener('click',e=>{const b=e.target.closest('[data-layer]'); if(!b) return; state.layer=b.dataset.layer; save(); renderAll()});
+document.getElementById('lens').addEventListener('click',e=>{const b=e.target.closest('[data-lens]'); if(!b) return; state.lens=b.dataset.lens; save(); renderLens(); renderBoard()});
+document.getElementById('acrossPanel').addEventListener('click',e=>{const b=e.target.closest('[data-goto]'); if(!b) return; state.layer=b.dataset.goto; save(); renderAll()});
+window.addEventListener('keydown',e=>{ if(e.key==='Shift'&&!shiftHeld){shiftHeld=true; renderLens(); renderBoard()} if(e.key==='Escape'){state.pinned=null; renderAll()} });
+window.addEventListener('keyup',e=>{ if(e.key==='Shift'){shiftHeld=false; renderLens(); renderBoard()} });
+window.addEventListener('blur',()=>{ if(shiftHeld){shiftHeld=false; renderLens(); renderBoard()} });
+const getBtn=document.getElementById('getBtn'), get=document.getElementById('get');
+getBtn.addEventListener('click',()=>{get.hidden=!get.hidden; getBtn.setAttribute('aria-expanded',String(!get.hidden))});
+document.getElementById('showBoot').addEventListener('click',()=>{state.layer='fn'; state.lens='all'; state.pinned='1-11'; save(); renderAll(); board.scrollIntoView({behavior:'smooth',block:'center'})});
+
+renderDecoder(); renderAll();
+</script>
+</body></html>

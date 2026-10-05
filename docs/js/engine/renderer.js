@@ -177,11 +177,76 @@ function computeFittedLines(text, maxW, h) {
  * @param {string} iconId
  * @param {number} cx
  * @param {number} tapCenterY
+/**
+ * Resolves a layer icon ID if the key represents a layer transition.
+ * @param {KeyCell} cell
+ * @returns {string|null}
+ */
+function resolveLayerIcon(cell) {
+  if (cell.icon && cell.icon.startsWith("layer-")) return cell.icon;
+  if (!cell.t) return null;
+
+  const text = cell.t.trim();
+  const match = text.match(/^(?:⇒|=>)\s*([A-Za-z0-9_-]+)/i);
+  if (!match) return null;
+
+  const target = match[1].toLowerCase();
+  if (target.includes("base")) return "layer-base";
+  if (target.includes("func")) return "layer-function";
+  if (target.includes("sym")) return "layer-symbols";
+  if (target.includes("nav")) return "layer-navigation";
+  if (target.includes("macro")) return "layer-macro";
+  if (target.includes("reserved") || target.includes("uat")) return "layer-reserved";
+
+  return null;
+}
+
+/**
+ * Resolves a secondary hold icon definition (standard key icon or layer sheet icon).
+ * Specifically handles:
+ * - Position 00 (Esc holding Caps Lock -> icon: "caps-lock")
+ * - Position 41 (\ holding Navigation -> layer icon: "layer-navigation")
+ * - Position 42 (Caps Lock / Esc holding Function -> layer icon: "layer-function")
+ * - Position 70 (Space holding Navigation -> layer icon: "layer-navigation")
+ * - Position 72 (Fn holding Function -> layer icon: "layer-function")
+ * - Home-row G and H keys for Symbols layer -> layer icon: "layer-symbols"
+ * @param {KeyCell} cell
+ * @returns {{ iconId: string, isLayer: boolean }|null}
+ */
+function resolveHoldIcon(cell) {
+  if (cell.holdIcon) {
+    const isLayer = cell.holdIcon.startsWith("layer-");
+    return { iconId: cell.holdIcon, isLayer };
+  }
+  if (!cell.h) return null;
+
+  const h = cell.h.trim().toLowerCase();
+  if (/caps/i.test(h)) return { iconId: "caps-lock", isLayer: false };
+  if (/sym/i.test(h)) return { iconId: "layer-symbols", isLayer: true };
+  if (/nav/i.test(h)) return { iconId: "layer-navigation", isLayer: true };
+  if (/func/i.test(h)) return { iconId: "layer-function", isLayer: true };
+  if (/macro/i.test(h)) return { iconId: "layer-macro", isLayer: true };
+  if (/base/i.test(h)) return { iconId: "layer-base", isLayer: true };
+  if (/reserved|uat/i.test(h)) return { iconId: "layer-reserved", isLayer: true };
+
+  return null;
+}
+
+/**
+ * Renders an SVG icon keycap action.
+ * @param {SVGElement} g
+ * @param {string} iconId
+ * @param {number} cx
+ * @param {number} tapCenterY
  * @param {number} maxW
  * @param {number} tapRegionH
  */
 function renderKeyIcon(g, iconId, cx, tapCenterY, maxW, tapRegionH) {
-  const size = Math.min(maxW, tapRegionH) * 0.86 * 0.6;
+  const isLayerIcon = iconId.startsWith("layer-");
+  const size = isLayerIcon
+    ? Math.min(maxW * 0.52, tapRegionH * 0.68)
+    : Math.min(maxW, tapRegionH) * 0.86 * 0.6;
+
   const useEl = document.createElementNS(SVG_NS, "use");
   useEl.setAttributeNS(XLINK_NS, "href", `#icon-${iconId}`);
   useEl.setAttribute("href", `#icon-${iconId}`);
@@ -189,7 +254,7 @@ function renderKeyIcon(g, iconId, cx, tapCenterY, maxW, tapRegionH) {
   useEl.setAttribute("y", (tapCenterY - size / 2).toFixed(2));
   useEl.setAttribute("width", size.toFixed(2));
   useEl.setAttribute("height", size.toFixed(2));
-  useEl.classList.add("key-tap");
+  useEl.classList.add(isLayerIcon ? "key-layer-icon" : "key-tap");
   g.appendChild(useEl);
 }
 
@@ -201,9 +266,11 @@ function renderKeyIcon(g, iconId, cx, tapCenterY, maxW, tapRegionH) {
  * @param {number} tapCenterY
  * @param {number} maxW
  * @param {number} h
+ * @param {number} [fontOverride]
  */
-function renderTapText(g, text, cx, tapCenterY, maxW, h) {
-  const { font, lines } = computeFittedLines(text, maxW, h);
+function renderTapText(g, text, cx, tapCenterY, maxW, h, fontOverride) {
+  const { font: computedFont, lines } = computeFittedLines(text, maxW, h);
+  const font = fontOverride || computedFont;
   const lineH = font * 1.08;
   const blockTop = tapCenterY - ((lines.length - 1) * lineH) / 2;
 
@@ -213,16 +280,66 @@ function renderTapText(g, text, cx, tapCenterY, maxW, h) {
 }
 
 /**
+/**
+ * Detects if a key is an F1-F12 function key with a media/action symbol.
+ * @param {KeyCell} cell
+ * @returns {{ fText: string, iconId: string|null, symbolText: string|null }|null}
+ */
+function getFunctionKeyInfo(cell) {
+  if (!cell) return null;
+
+  // Case 1: cell.sh is F1-F12 (standard Base layer F-row)
+  if (cell.sh && /^F(?:1[0-2]|[1-9])$/i.test(cell.sh.trim())) {
+    const fText = cell.sh.trim().toUpperCase();
+    return {
+      fText,
+      iconId: cell.icon || null,
+      symbolText: !cell.icon && cell.t && cell.t !== fText ? cell.t : null,
+    };
+  }
+
+  // Case 2: cell.t is F1-F12 and has an icon
+  if (cell.t && /^F(?:1[0-2]|[1-9])$/i.test(cell.t.trim()) && cell.icon) {
+    return {
+      fText: cell.t.trim().toUpperCase(),
+      iconId: cell.icon,
+      symbolText: null,
+    };
+  }
+
+  return null;
+}
+
+/**
  * Renders secondary hold badges or top-right shifted symbols.
  * @param {SVGElement} g
  * @param {KeyCell} cell
- * @param {{ cx: number, x: number, y: number, w: number, h: number, padX: number }} dims
+ * @param {{ cx: number, x: number, y: number, w: number, h: number, padX: number, maxW: number }} dims
  */
-function renderSecondaryBadge(g, cell, { cx, x, y, w, h, padX }) {
+function renderSecondaryBadge(g, cell, { cx, x, y, w, h, padX, maxW }) {
+  const holdIconInfo = resolveHoldIcon(cell);
+  if (holdIconInfo) {
+    const iconSize = Math.min(10.0, maxW * 0.52, h * 0.44);
+    const iconCenterY = y + h * 0.69;
+    const useEl = document.createElementNS(SVG_NS, "use");
+    useEl.setAttributeNS(XLINK_NS, "href", `#icon-${holdIconInfo.iconId}`);
+    useEl.setAttribute("href", `#icon-${holdIconInfo.iconId}`);
+    useEl.setAttribute("x", (cx - iconSize / 2).toFixed(2));
+    useEl.setAttribute("y", (iconCenterY - iconSize / 2).toFixed(2));
+    useEl.setAttribute("width", iconSize.toFixed(2));
+    useEl.setAttribute("height", iconSize.toFixed(2));
+    useEl.classList.add(
+      holdIconInfo.isLayer ? "key-layer-icon" : "key-icon",
+      "key-hold-icon"
+    );
+    g.appendChild(useEl);
+    return;
+  }
+
   if (cell.h) {
     const holdMaxW = w - Math.min(1.6, w * 0.06) * 2;
     const holdFont = fitSingleLine(cell.h, holdMaxW, Math.min(5.6, w * 0.24), 3.2);
-    addText(g, cx, y + h * 0.78, holdFont, "key-hold", cell.h);
+    addText(g, cx, y + h * 0.76, holdFont, "key-hold", cell.h);
     return;
   }
 
@@ -230,6 +347,144 @@ function renderSecondaryBadge(g, cell, { cx, x, y, w, h, padX }) {
     const shiftFont = Math.min(4.2, w * 0.18);
     addText(g, x + w - padX - 1.5, y + padX + 2, shiftFont, "key-shift", cell.sh);
   }
+}
+
+/**
+ * Detects if a key cell has "hidden powers" beyond standard tap or momentary hold.
+ * (Tap-dance, combo participation, deep long-hold 3s+, or explicit powers metadata).
+ * @param {KeyCell|null} cell
+ * @returns {boolean}
+ */
+export function hasSuperpower(cell) {
+  if (!cell) return false;
+  if (cell.powers) return true;
+  if (!cell.n) return false;
+  const n = cell.n.toLowerCase();
+  return (
+    n.includes("double-tap") ||
+    n.includes("tap-dance") ||
+    n.includes("combo") ||
+    n.includes("hold 3s") ||
+    n.includes("hold 5s") ||
+    n.includes("long-hold") ||
+    n.includes("bootloader") ||
+    n.includes("reset")
+  );
+}
+
+/**
+ * Renders the accessible superpower badge in the corner where the geometric dog-ear would be.
+ * @param {SVGElement} g
+ * @param {KeyCell} cell
+ * @param {{ x: number, y: number, w: number, h: number }} dims
+ */
+export function renderSuperpowerBadge(g, cell, { x, y, w, h }) {
+  if (!hasSuperpower(cell)) return;
+
+  const badgeSize = Math.min(6.8, w * 0.28, h * 0.28);
+  const badgeX = x + 1.2;
+  const badgeY = y + 1.2;
+
+  const useEl = document.createElementNS(SVG_NS, "use");
+  useEl.setAttributeNS(XLINK_NS, "href", "#icon-dogear-badge");
+  useEl.setAttribute("href", "#icon-dogear-badge");
+  useEl.setAttribute("x", badgeX.toFixed(2));
+  useEl.setAttribute("y", badgeY.toFixed(2));
+  useEl.setAttribute("width", badgeSize.toFixed(2));
+  useEl.setAttribute("height", badgeSize.toFixed(2));
+  useEl.classList.add("key-superpower-dogear", "key-superpower-badge");
+  g.appendChild(useEl);
+}
+
+/**
+ * Resolves the complete 5-tier firmware action matrix for a key cell.
+ * @param {KeyCell|null} cell
+ * @returns {{ tap: string, hold: string, dance: string, long: string, combo: string, isSpecial: boolean }}
+ */
+export function resolveFirmwareMatrix(cell) {
+  if (!cell) {
+    return {
+      tap: "—",
+      hold: "—",
+      dance: "—",
+      long: "—",
+      combo: "—",
+      isSpecial: false,
+    };
+  }
+
+  // If cell defines explicit powers object
+  if (cell.powers) {
+    const p = cell.powers;
+    const comboStr = Array.isArray(p.combos)
+      ? p.combos.map((c) => `+ [${c.withKeys.join(" + ")}] ⇒ ${c.action}`).join("<br>")
+      : (p.combo || "—");
+
+    return {
+      tap: p.tap || cell.t || "—",
+      hold: p.hold || cell.h || "—",
+      dance: p.doubleTap || p.tapDance || "—",
+      long: p.longHold || p.deepHold || "—",
+      combo: comboStr,
+      isSpecial: true,
+    };
+  }
+
+  // Otherwise, intelligently extract from cell fields & documentation notes
+  const tapStr = cell.t || (cell.icon ? `Icon (#icon-${cell.icon})` : "—");
+  const holdStr = cell.h || "—";
+  let danceStr = "—";
+  let longStr = "—";
+  let comboStr = "—";
+  let isSpecial = false;
+
+  if (cell.n) {
+    const n = cell.n;
+    // Check for double-tap / tap dance
+    const dtMatch = n.match(/(?:Double-tap|Tap-dance|2x tap):\s*([^.]+)/i);
+    if (dtMatch) {
+      danceStr = dtMatch[1].trim();
+      isSpecial = true;
+    }
+
+    // Check for deep hold (3s+, 5s+, bootloader, reset)
+    const lhMatch = n.match(/(?:Hold\s*\d+s|Long-hold|Deep-hold|Bootloader|Reset):\s*([^.]+)/i);
+    if (lhMatch) {
+      longStr = lhMatch[1].trim();
+      isSpecial = true;
+    } else if (/bootloader|reset/i.test(n)) {
+      longStr = "Hold 5s: Firmware Reset / Bootloader";
+      isSpecial = true;
+    }
+
+    // Check for combos
+    const cbMatch = n.match(/(?:Combo|Chord):\s*([^.]+)/i);
+    if (cbMatch) {
+      comboStr = cbMatch[1].trim();
+      isSpecial = true;
+    }
+  }
+
+  // Known firmware chord mappings on standard layers
+  if (cell.t === "Q" || cell.t === "W") {
+    comboStr = "+ [Q + W] simultaneously ⇒ Esc (Quick Escape Chord)";
+    isSpecial = true;
+  } else if (cell.t === "J" || cell.t === "K") {
+    comboStr = "+ [J + K] simultaneously ⇒ Enter (Quick Enter Chord)";
+    isSpecial = true;
+  } else if (cell.t === "Tab" || cell.t === "\\") {
+    comboStr = "+ [Tab + \\] simultaneously ⇒ Toggle Nav Layer Lock";
+    isSpecial = true;
+  }
+
+  return {
+    tap: tapStr,
+    hold: holdStr,
+    dance: danceStr,
+    long: longStr,
+    combo: comboStr,
+    isSpecial,
+  };
 }
 
 /**
@@ -248,17 +503,49 @@ function renderKeyContent(g, cell, dims) {
     return;
   }
 
-  const hasHold = Boolean(cell.h);
-  const tapRegionH = hasHold ? h * 0.62 : h * 0.92;
-  const tapCenterY = hasHold ? y + h * 0.34 : y + h / 2;
+  // Function keys (F1-F12 with symbols): F1-12 text at 4.80, bold & centered, symbols at 10.0 height
+  const fKey = getFunctionKeyInfo(cell);
+  if (fKey) {
+    const fTextY = y + h * 0.28;
+    addText(g, cx, fTextY, 4.8, "key-tap", fKey.fText);
 
-  if (cell.icon) {
-    renderKeyIcon(g, cell.icon, cx, tapCenterY, maxW, tapRegionH);
+    const symCenterY = y + h * 0.69;
+    if (fKey.iconId) {
+      const symSize = 10.0;
+      const useEl = document.createElementNS(SVG_NS, "use");
+      useEl.setAttributeNS(XLINK_NS, "href", `#icon-${fKey.iconId}`);
+      useEl.setAttribute("href", `#icon-${fKey.iconId}`);
+      useEl.setAttribute("x", (cx - symSize / 2).toFixed(2));
+      useEl.setAttribute("y", (symCenterY - symSize / 2).toFixed(2));
+      useEl.setAttribute("width", symSize.toFixed(2));
+      useEl.setAttribute("height", symSize.toFixed(2));
+      useEl.classList.add("key-icon");
+      g.appendChild(useEl);
+    } else if (fKey.symbolText) {
+      addText(g, cx, symCenterY, 5.8, "key-tap", fKey.symbolText);
+    }
+    renderSuperpowerBadge(g, cell, dims);
+    return;
+  }
+
+  const holdIconInfo = resolveHoldIcon(cell);
+  const hasHold = Boolean(cell.h);
+  const isDualRole = hasHold || Boolean(holdIconInfo);
+  const tapRegionH = isDualRole ? h * 0.62 : h * 0.92;
+  const tapCenterY = isDualRole ? y + h * 0.28 : y + h / 2;
+
+  const layerIconId = resolveLayerIcon(cell);
+  const iconToRender = cell.icon || layerIconId;
+
+  if (iconToRender) {
+    renderKeyIcon(g, iconToRender, cx, tapCenterY, maxW, tapRegionH);
   } else if (cell.t) {
-    renderTapText(g, cell.t, cx, tapCenterY, maxW, h);
+    const fontOverride = isDualRole ? 4.8 : undefined;
+    renderTapText(g, cell.t, cx, tapCenterY, maxW, h, fontOverride);
   }
 
   renderSecondaryBadge(g, cell, dims);
+  renderSuperpowerBadge(g, cell, dims);
 }
 
 /**
@@ -407,8 +694,8 @@ export function defaultKeyClassifier(rowIdx, colIdx, rowCount, colCount, cell) {
   if (cell?.cls) return cell.cls;
 
   const isEscOrEnter =
-    (rowIdx === 0 && (colIdx === 0 || colIdx === colCount - 1)) ||
-    (rowIdx === 3 && (colIdx === 0 || colIdx === colCount - 1));
+    (rowIdx === 0 && colIdx === 0) ||
+    (rowIdx === 3 && colIdx === colCount - 1);
 
   if (isEscOrEnter) return "esc-ent-group";
 

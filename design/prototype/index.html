@@ -1,0 +1,527 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>[hidden]{display:none!important}</style></head><body>
+<title>VT Keymap Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Single deliberate dark "cockpit" look. Board colors come from the colorway tokens below. */
+:root{
+  color-scheme:dark;
+  --ground:#0E1012; --recess:#15181B; --ink:#E4E7EA; --muted:#8A939C; --faint:#5A626B; --hair:#23282D;
+  --base:#A9B0B9; --fn:#35B39C; --sym:#E6A23C; --nav:#9C7FF0; --mcro:#9CC04A;
+  --tint:#A9B0B9; --focus:#78A8F0;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  /* colorway: Space Gray (default) */
+  --case:#2E2F31; --case-ink:rgba(255,255,255,.45); --cap:#454643; --cap-hi:#4E4F4C; --cap-edge:#2A2B29; --cap-none:#393A38;
+  --lg:#FFFFFF; --lg-shift:#6CC0F0; --lg-multi:#F37FA4; --band-bg:rgba(255,255,255,.12); --band-fg:#DADDE0; --trans-line:rgba(255,255,255,.25); --sel:#FFFFFF;
+  --ee-cap:var(--cap); --ee-hi:var(--cap-hi); --ee-lg:var(--lg); --ut-cap:var(--cap); --ut-hi:var(--cap-hi); --ut-lg:var(--lg);
+}
+:root[data-cw="ivory-white"]{
+  --tint:#EFEDE6; --case:#E4E2DC; --case-ink:rgba(0,0,0,.4); --cap:#F6F6F6; --cap-hi:#FFFFFF; --cap-edge:#C9C7C1; --cap-none:#E9E8E4;
+  --lg:#26282B; --lg-shift:#1B6FA8; --lg-multi:#B8285A; --band-bg:rgba(0,0,0,.08); --band-fg:#3A3D41; --trans-line:rgba(0,0,0,.2); --sel:#111316;
+}
+:root[data-cw="retro-red"],:root[data-cw="retro-blue"]{
+  --case:#D8D4CB; --case-ink:rgba(0,0,0,.42); --cap:#ECE8DF; --cap-hi:#F4F1EA; --cap-edge:#BDB8AD; --cap-none:#E1DDD3;
+  --lg:#2C2B29; --lg-shift:#1B6FA8; --lg-multi:#B8285A; --band-bg:rgba(0,0,0,.08); --band-fg:#3A3936; --trans-line:rgba(0,0,0,.2); --sel:#111316;
+}
+:root[data-cw="retro-red"]{ --tint:#C8404F; --ee-cap:#93162A; --ee-hi:#A31D33; --ee-lg:#E4E1DB }
+:root[data-cw="retro-blue"]{ --tint:#AEB6C4; --ee-cap:#9CA4B2; --ee-hi:#A8B0BD; --ee-lg:#1F2328; --ut-cap:#9CA4B2; --ut-hi:#A8B0BD; --ut-lg:#1F2328 }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--ground); color:var(--ink); font:15px/1.5 var(--body); padding-inline:24px; padding-block:18px 56px; margin:0}
+.col{max-width:1240px; margin:0 auto}
+button,select{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.lbl{font:500 10.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+.hair{border:0; border-top:1px solid var(--hair); margin:0}
+
+/* header: flat, one line */
+header{display:flex; flex-wrap:wrap; align-items:center; gap:14px 28px; padding-block:6px 16px}
+.brand{display:flex; align-items:baseline; gap:12px; margin-right:auto}
+.brand h1{font:700 24px/1 var(--display); letter-spacing:-.01em; margin:0}
+.brand span{font:500 11px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.sel{display:grid; gap:5px}
+.sel select{appearance:none; -webkit-appearance:none; background:transparent; border:0; border-bottom:1px solid var(--hair); padding:2px 18px 4px 0; font-size:14px; cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%); background-size:4px 4px; background-position:calc(100% - 7px) 55%,calc(100% - 3px) 55%; background-repeat:no-repeat}
+.sel select option{background:#15181B}
+.btn{border:0; border-radius:6px; padding:9px 16px; font-weight:600; cursor:pointer; background:var(--tint); color:#111316}
+.btn small{font:400 12px var(--mono); opacity:.7; margin-left:6px}
+
+/* instrument strips */
+.strip{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 24px; padding-block:14px 12px}
+.tabs{display:flex; flex-wrap:wrap; gap:4px 22px}
+.tab{background:none; border:0; padding:4px 0 7px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; color:var(--muted); border-bottom:2px solid transparent; font-size:14.5px}
+.tab i{width:9px; height:9px; border-radius:50%; background:var(--h); opacity:.55}
+.tab:hover{color:var(--ink)}
+.tab[aria-pressed="true"]{color:var(--ink); border-bottom-color:var(--h)}
+.tab[aria-pressed="true"] i{opacity:1; box-shadow:0 0 8px var(--h)}
+.tab .how{display:none}
+.lens{display:inline-flex; flex-wrap:wrap; gap:2px; background:#171A1D; border-radius:7px; padding:3px}
+.lens button{background:none; border:0; border-radius:5px; padding:5px 10px; cursor:pointer; font-size:13px; color:var(--muted); display:inline-flex; gap:6px; align-items:center}
+.lens button:hover{color:var(--ink)}
+.lens button[aria-pressed="true"]{background:#2A2F35; color:var(--ink)}
+.lens .ct{font:11.5px var(--mono); color:var(--faint)}
+.lens .g{width:18px; height:10px; color:var(--c)}
+
+/* board: hero */
+.board-scroll{overflow-x:auto}
+.board{min-width:820px; position:relative; aspect-ratio:388/173; background:linear-gradient(180deg,color-mix(in srgb,var(--case) 100%,#fff 6%),var(--case)); border-radius:calc(8/388*100%) / calc(8/173*100%); container-type:inline-size;
+  box-shadow:0 1px 0 rgba(255,255,255,.1) inset, 0 30px 60px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.4); transition:background .35s}
+.statusline{position:absolute; top:1cqw; left:2.3cqw; font:500 .9cqw/1 var(--mono); color:var(--case-ink); letter-spacing:.1em; text-transform:uppercase}
+.key{position:absolute; border-radius:.75cqw; background:linear-gradient(180deg,var(--k-hi),var(--k-cap)); box-shadow:0 .2cqw 0 var(--cap-edge), 0 0 0 .07cqw rgba(0,0,0,.25) inset; color:var(--k-lg);
+  --k-cap:var(--cap); --k-hi:var(--cap-hi); --k-lg:var(--lg);
+  display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr auto; padding:.35cqw .45cqw .3cqw; cursor:pointer; user-select:none; -webkit-user-select:none; transition:transform .08s, opacity .15s, background .35s; touch-action:none; overflow:hidden}
+.key.ee{--k-cap:var(--ee-cap); --k-hi:var(--ee-hi); --k-lg:var(--ee-lg)}
+.key.ut{--k-cap:var(--ut-cap); --k-hi:var(--ut-hi); --k-lg:var(--ut-lg)}
+.key:hover{transform:translateY(-.12cqw)}
+.key.sel{box-shadow:0 .2cqw 0 var(--cap-edge), 0 0 0 .22cqw var(--sel) inset}
+.key .tl{grid-area:1/1; font:500 .95cqw/1.05 var(--mono); color:var(--lg-multi); white-space:nowrap}
+.key .tr{grid-area:1/2; justify-self:end; font:500 .95cqw/1.05 var(--mono); color:var(--lg-shift)}
+.key .c{grid-area:2/1/3/3; align-self:center; justify-self:center; text-align:center; font-weight:500; font-size:1.55cqw; line-height:1.05; overflow-wrap:anywhere}
+.key .c.m{font-size:1.15cqw} .key .c.s{font-size:.92cqw; line-height:1.1}
+.key .c.to{color:var(--h); filter:brightness(.85)}
+.key .band{grid-area:3/1/4/3; margin:0 -.2cqw; border-radius:.35cqw; font:500 .82cqw/1 var(--mono); padding:.2cqw .3cqw; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.band.mod{background:var(--band-bg); color:var(--band-fg)}
+.band.lay{background:var(--h); color:#15171A}
+.band.long{background:repeating-linear-gradient(135deg,var(--band-bg) 0 .35cqw,transparent .35cqw .7cqw); color:var(--band-fg); box-shadow:0 0 0 .06cqw var(--trans-line) inset}
+.key.stacked{grid-template-rows:1fr; padding:.1cqw .4cqw; border-radius:.5cqw}
+.key.stacked .c{font-size:1cqw}
+.key.trans{background:transparent; box-shadow:0 0 0 .1cqw var(--trans-line) inset}
+.key.trans>*{opacity:.4}
+.key.none{background:var(--cap-none); box-shadow:0 .12cqw 0 var(--cap-edge); cursor:default}
+.key.none:hover{transform:none}
+.key.held{background:var(--h); color:#15171A; transform:translateY(.12cqw); box-shadow:0 .06cqw 0 var(--cap-edge)}
+.key.held .c{font:500 .95cqw var(--mono)}
+.key.dim{opacity:.2}
+.key.lensed .c{font-size:1.5cqw}
+.key.lensed.l-shift .c{color:var(--lg-shift)} .key.lensed.l-multi .c{color:var(--lg-multi)}
+.key.lensed.tolayer .c{color:var(--h); filter:brightness(.85)}
+.key.lensed .c small{display:block; font:500 .85cqw var(--mono); opacity:.75; margin-top:.2cqw}
+
+/* combos: bridge between keys that act together */
+.combo{position:absolute; pointer-events:none; z-index:2}
+.combo .br{position:absolute; left:0; right:0; top:50%; border-top:.22cqw dashed var(--sel); opacity:.85}
+.combo .pill{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font:500 .82cqw/1 var(--mono); background:var(--sel); color:var(--case); padding:.25cqw .55cqw; border-radius:.7cqw; white-space:nowrap}
+.combo.quiet{opacity:.75}
+.key.combo-on{box-shadow:0 .2cqw 0 var(--cap-edge), 0 0 0 .16cqw var(--sel) inset}
+@keyframes led{50%{box-shadow:0 0 0 .5cqw var(--tint), 0 0 4cqw var(--tint)}}
+.board.flash{animation:led .32s ease-in-out 3}
+.try{background:none; border:1px solid var(--hair); border-radius:6px; padding:4px 10px; font:500 12px var(--mono); color:var(--ink); cursor:pointer; margin-top:6px}
+.try:hover{border-color:var(--muted)}
+
+/* lower strip: annunciators + livery */
+.ann{display:flex; flex-wrap:wrap; gap:6px 22px; font:500 11px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+.ann span{display:inline-flex; align-items:center; gap:7px}
+.ann b{font-weight:500; color:var(--ink)}
+.led{width:7px; height:7px; border-radius:50%; background:#2A2F35}
+.led.on{background:var(--h,#E4E7EA); box-shadow:0 0 7px var(--h,#E4E7EA)}
+.livery{display:flex; flex-wrap:wrap; align-items:center; gap:10px}
+.livery .nm{font:500 11px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); min-width:92px; text-align:right}
+.chip{width:20px; height:20px; border-radius:50%; border:0; cursor:pointer; background:var(--sw); box-shadow:0 0 0 1px rgba(255,255,255,.18) inset; padding:0}
+.chip[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ground), 0 0 0 3.5px var(--ink)}
+.hint{font-size:12.5px; color:var(--faint); padding-block:10px 22px; display:flex; flex-wrap:wrap; gap:4px 22px}
+.hint kbd{font:11px var(--mono); color:var(--muted); border-bottom:1px solid var(--hair); padding:0 3px}
+
+/* MFD: the only panel on the page */
+.mfd{background:var(--recess); padding:18px 24px 22px}
+@media (max-width:600px){ .mfd{padding-inline:14px} .mfd-tabs{margin-inline:-14px; padding-inline:14px} .rows li{grid-template-columns:48px minmax(0,1fr) auto; gap:10px} .out{white-space:normal} }
+.mfd-tabs{display:flex; overflow-x:auto; gap:22px; border-bottom:1px solid var(--hair); margin:-4px -24px 18px; padding:0 24px}
+.mfd-tabs button{background:none; border:0; padding:6px 0 10px; cursor:pointer; font:500 11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--faint); border-bottom:2px solid transparent; margin-bottom:-1px}
+.mfd-tabs button[aria-selected="true"]{color:var(--ink); border-bottom-color:var(--tint)}
+.split{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:0}
+.split>div:first-child{padding-right:28px}
+.split>div+div{padding-left:28px; border-left:1px solid var(--hair)}
+@media (max-width:980px){ .split{grid-template-columns:1fr} .split>div:first-child{padding-right:0} .split>div+div{padding-left:0; border-left:0; border-top:1px solid var(--hair); padding-top:18px; margin-top:18px} }
+
+.khead{display:flex; gap:16px; align-items:center; padding-bottom:6px}
+.mini{flex:none; width:56px; height:56px; border-radius:9px; background:linear-gradient(180deg,var(--cap-hi),var(--cap)); box-shadow:0 3px 0 var(--cap-edge); color:var(--lg); display:grid; place-items:center; font-weight:500; font-size:19px; text-align:center; line-height:1.05; padding:4px; overflow-wrap:anywhere; transition:background .35s}
+.mini.sm{font-size:12.5px}
+.khead h2{font:600 22px/1.15 var(--display); margin:0}
+.khead .sub{color:var(--muted); font-size:13.5px}
+.pin{font:500 10px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-left:10px; vertical-align:4px}
+.rows{list-style:none; margin:0; padding:0}
+.rows li{display:grid; grid-template-columns:64px minmax(0,1fr) auto; gap:14px; align-items:center; padding:10px 0; border-top:1px solid var(--hair)}
+.rows .gn{font-weight:600; font-size:14.5px}
+.rows .gd{font-size:12.5px; color:var(--muted)}
+.out{font:500 14px var(--mono); padding:5px 10px 4px; border-radius:6px; background:#23272C; box-shadow:0 2px 0 #0B0D0F; white-space:nowrap; justify-self:end}
+.out.lay{background:var(--h); color:#15171A; box-shadow:0 2px 0 #0B0D0F}
+.tsvg{color:var(--c,var(--ink))}
+.notes{font-size:13px; color:var(--muted); padding-top:10px; border-top:1px solid var(--hair)}
+
+.xl{list-style:none; margin:10px 0 0; padding:0}
+.xl button{width:100%; display:grid; grid-template-columns:10px minmax(0,1fr) auto; gap:2px 12px; align-items:center; text-align:left; background:none; border:0; border-top:1px solid var(--hair); padding:10px 0; cursor:pointer}
+.xl li:first-child button{border-top:0}
+.xl .dot{width:9px; height:9px; border-radius:50%; background:var(--h); opacity:.5}
+.xl button[aria-current="true"] .dot{opacity:1; box-shadow:0 0 8px var(--h)}
+.xl .ln{font-size:14px; color:var(--muted)}
+.xl button[aria-current="true"] .ln{color:var(--ink); font-weight:600}
+.xl .ln small{display:block; font-size:12px; color:var(--faint); font-weight:400}
+.xl .v{font:500 14px var(--mono); display:flex; gap:10px; align-items:center; justify-content:flex-end; flex-wrap:wrap}
+.xl .v em{font-style:normal; font-size:11.5px; color:var(--muted)}
+.xl .v em.m{color:#F37FA4} .xl .v em.s{color:#6CC0F0}
+.xl .v.none{font:13px var(--body); color:var(--faint)}
+
+/* legend (decoder) mode */
+.dec{display:grid; grid-template-columns:270px minmax(0,1fr); gap:32px; align-items:center}
+@media (max-width:700px){ .dec{grid-template-columns:1fr} }
+.anat{position:relative; width:270px; height:140px}
+.bigcap{position:absolute; left:84px; top:20px; width:100px; height:100px; border-radius:12px; background:linear-gradient(180deg,var(--cap-hi),var(--cap)); box-shadow:0 3px 0 var(--cap-edge); color:var(--lg); display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr auto; padding:7px 8px 6px}
+.bigcap .tl{font:500 14px var(--mono); color:var(--lg-multi)} .bigcap .tr{justify-self:end; font:500 14px var(--mono); color:var(--lg-shift)}
+.bigcap .c{grid-column:1/3; place-self:center; font-size:30px; font-weight:500}
+.bigcap .band{grid-column:1/3; background:var(--sym); color:#15171A; border-radius:5px; font:500 11px/1 var(--mono); padding:4px; text-align:center}
+.anat .lb{position:absolute; white-space:nowrap; font:500 10.5px/1.3 var(--mono); letter-spacing:.06em; color:var(--faint); text-transform:uppercase}
+.anat .lb b{display:block; font:600 13px var(--body); letter-spacing:0; text-transform:none; color:var(--ink)}
+.declist{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px 28px}
+.declist li{display:grid; grid-template-columns:58px 1fr; gap:12px; font-size:13px; color:var(--muted)}
+.declist b{display:block; color:var(--ink); font-size:14px}
+
+/* flash mode */
+.steps{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px 36px; counter-reset:s}
+.steps li{counter-increment:s; display:grid; gap:5px; align-content:start; font-size:13.5px; color:var(--muted)}
+.steps li::before{content:"0" counter(s); font:500 22px/1 var(--display); color:var(--tint)}
+.steps b{color:var(--ink); font-size:15px}
+.linkbtn{background:none; border:0; padding:0; color:var(--focus); cursor:pointer; text-decoration:underline; text-underline-offset:3px; justify-self:start; font-size:13.5px}
+.foot{font-size:11.5px; color:var(--faint); padding-top:18px; font-family:var(--mono); letter-spacing:.04em}
+@media (prefers-reduced-motion: reduce){ .key,.board,.mini{transition:none} }
+</style>
+
+<div class="col">
+  <header>
+    <div class="brand"><h1>Keymap Explorer</h1><span>VT Keymap Collection</span></div>
+    <label class="sel"><span class="lbl">Keyboard</span><select id="kb"><option>Keychron B1 Pro · ZMK</option></select></label>
+    <label class="sel"><span class="lbl">OS</span><select id="os"><option>macOS</option></select></label>
+    <label class="sel"><span class="lbl">Release</span><select id="ver"><option>v0.24 · stable</option></select></label>
+    <button class="btn" id="getBtn">Get this layout<small>v0.24</small></button>
+  </header>
+  <hr class="hair">
+
+  <div class="strip">
+    <nav class="tabs" id="layers" aria-label="Layers"></nav>
+    <div class="lens" id="lens" role="group" aria-label="Show gesture"></div>
+  </div>
+
+  <div class="board-scroll"><div class="board" id="board"></div></div>
+
+  <div class="strip">
+    <div class="ann" id="ann"></div>
+    <div class="livery" id="livery" role="group" aria-label="Colorway"></div>
+  </div>
+  <hr class="hair">
+  <div class="hint">
+    <span>Hover a key to inspect · click to pin</span>
+    <span>Hold a key with a colored band to peek at that layer</span>
+    <span>Hold <kbd>Shift</kbd> to see shifted output</span>
+  </div>
+
+  <section class="mfd" aria-label="Details">
+    <div class="mfd-tabs" role="tablist" id="mfdTabs">
+      <button role="tab" data-mode="key" aria-selected="true">Key</button>
+      <button role="tab" data-mode="legend" aria-selected="false">How to read a key</button>
+      <button role="tab" data-mode="flash" aria-selected="false">Flash v0.24</button>
+    </div>
+    <div id="mfd"></div>
+  </section>
+  <p class="foot">Prototype · macOS layer data from B1 Pro keymap v0.24 · board drawn from the B1 Pro plate grid; production uses Keychron's original SVG artwork per colorway</p>
+</div>
+<script>
+/* ---------- geometry (388 × 173 units) ---------- */
+const GRID=[[[8.27,16.01,47.5,38.96],[50.19,15.89,73.04,38.84],[75.73,15.77,98.58,38.84],[101.27,15.65,124.12,38.71],[126.69,15.53,149.54,38.59],[152.23,15.4,175.08,38.47],[177.77,15.28,200.62,38.35],[203.31,15.16,226.15,38.23],[228.84,15.16,251.57,38.23],[254.26,15.04,277.11,38.11],[279.8,14.92,302.65,37.99],[305.34,14.8,328.19,37.86],[330.88,14.68,353.73,37.74],[355.7,14.55,378.54,37.62]],
+[[8.39,41.07,31.24,64.13],[33.33,40.94,56.18,64.01],[58.14,40.94,80.99,64.01],[82.96,40.82,105.81,63.89],[107.9,40.7,130.75,63.77],[132.71,40.58,155.56,63.65],[157.53,40.46,180.38,63.52],[182.47,40.34,205.31,63.4],[207.28,40.21,230.13,63.28],[232.1,40.21,254.95,63.16],[257.03,40.09,279.88,63.16],[281.85,39.97,304.7,63.04],[306.67,39.85,329.51,62.92],[331.6,39.73,379.27,62.79]],
+[[8.51,66.12,43.77,89.31],[45.86,66,68.71,89.06],[70.67,66,93.52,88.94],[95.49,65.88,118.34,88.94],[120.43,65.75,143.27,88.82],[145.24,65.63,168.09,88.7],[170.06,65.51,192.91,88.58],[194.99,65.39,217.84,88.46],[219.81,65.39,242.66,88.46],[244.75,65.27,267.47,88.33],[269.56,65.15,292.41,88.21],[294.38,65.02,317.23,88.09],[319.31,64.9,342.04,87.97],[344.13,64.78,379.39,87.85]],
+[[8.63,91.17,50.15,114.36],[52.12,91.17,74.97,114.12],[77.06,91.05,99.79,114.12],[101.87,90.93,124.72,114],[126.69,90.81,149.54,113.87],[151.63,90.69,174.35,113.75],[176.44,90.56,199.29,113.63],[201.26,90.56,224.11,113.51],[226.19,90.44,249.04,113.51],[251.01,90.32,273.86,113.39],[275.83,90.2,298.67,113.27],[300.76,90.08,323.49,113.14],[325.58,89.83,379.51,113.02]],
+[[8.75,116.23,62.68,139.41],[64.65,116.1,87.5,139.17],[89.59,116.1,112.31,139.17],[114.4,115.98,137.25,139.05],[139.22,115.86,162.07,138.93],[164.15,115.74,186.88,138.81],[188.97,115.62,211.82,138.68],[213.79,115.5,236.63,138.56],[238.72,115.5,261.45,138.56],[263.54,115.37,286.39,138.44],[288.35,115.25,311.2,138.32],[313.29,115.01,379.63,138.2]],
+[[8.87,141.52,44.13,164.59],[46.1,141.4,75.21,164.47],[77.18,141.16,106.29,164.34],[108.26,140.55,249.16,164.1],[251.25,140.55,280.24,163.62],[282.21,140.43,305.06,163.49],[307.15,140.31,330,163.37],[[331.96,140.31,354.81,152.3],[331.96,151.25,354.81,163.25]],[356.78,140.06,379.63,163.13]]];
+
+/* ---------- structured binding model ----------
+   t  tap output          sh  shifted output
+   h  hold → modifier     hl  hold → layer (while held)
+   x2 / x3  double / triple tap
+   lp long-press output (lpt = time)
+   to tap → switch layer  os  tap → one-shot layer (next key only)
+   n  free-text note */
+const T='T', k=(t,o={})=>({t,...o});
+const L={
+ base:{num:0,name:'Base',short:'Base',hue:'var(--base)',how:'Default layer'},
+ fn:{num:1,name:'Function',short:'Fn',hue:'var(--fn)',how:'Hold Esc (home row) or hold Fn'},
+ sym:{num:2,name:'Symbols',short:'Sym',hue:'var(--sym)',how:'Hold G or H'},
+ nav:{num:3,name:'Navigation',short:'Nav',hue:'var(--nav)',how:'Hold Space or hold \\'},
+ mcro:{num:5,name:'Macro Selector',short:'Macro',hue:'var(--mcro)',how:'Tap Fn · lasts one keypress'},
+};
+const HELD={fn:['3-0','5-5'],sym:['3-5','3-6'],nav:['5-3','2-13'],mcro:['5-5']};
+const N=null;
+L.base.rows=[
+ [k('Esc',{h:'Caps Lock'}),k('☀−',{n:'Brightness down'}),k('☀+',{n:'Brightness up'}),k('⧉',{n:'Mission Control'}),k('Launch­pad'),k('Spot­light'),k('Lock'),k('⏮',{n:'Previous track'}),k('⏯',{n:'Play / pause'}),k('⏭',{n:'Next track'}),k('Mute'),k('Vol −'),k('Vol +'),k('Del')],
+ [k('`',{sh:'~'}),k('1',{sh:'!'}),k('2',{sh:'@'}),k('3',{sh:'#'}),k('4',{sh:'$'}),k('5',{sh:'%'}),k('6',{sh:'^'}),k('7',{sh:'&'}),k('8',{sh:'*'}),k('9',{sh:'('}),k('0',{sh:')'}),k('-',{sh:'_'}),k('=',{sh:'+'}),k('⌫ Back­space')],
+ [k('Tab',{h:'Hyper',n:'Hyper = Ctrl + Shift + ⌘ + Option pressed together.'}),k('Q'),k('W'),k('E'),k('R'),k('T'),k('Y'),k('U'),k('I'),k('O'),k('P'),k('[',{sh:'{'}),k(']',{sh:'}'}),k('\\',{sh:'|',hl:'nav'})],
+ [k('Esc',{hl:'fn'}),k('A',{h:'∧'}),k('S',{h:'⌘'}),k('D',{h:'⌥'}),k('F',{h:'⇧'}),k('G',{hl:'sym'}),k('H',{hl:'sym'}),k('J',{h:'⇧'}),k('K',{h:'⌥'}),k('L',{h:'⌘'}),k(';',{h:'∧',sh:':'}),k("'",{sh:'"'}),k('Enter')],
+ [k('⇧ Shift'),k('Z'),k('X'),k('C'),k('V'),k('B'),k('N'),k('M'),k(',',{sh:'<'}),k('.',{sh:'>'}),k('/',{sh:'?'}),k('⇧ Shift')],
+ [k('∧'),k('⌥'),k('⌘'),k('Space',{hl:'nav'}),k('⌘'),k('Fn',{os:'mcro',hl:'fn'}),k('←'),[k('↑'),k('↓')],k('→')]];
+const F13=['F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24'].map(x=>k(x));
+L.fn.rows=[
+ [k('Base',{to:'base'}),...['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12'].map(x=>k(x)),k('Del')],
+ [T,k('BT 1',{x2:'Pair BT 1',n:'Tap selects Bluetooth profile 1. Double-tap starts pairing.'}),k('BT 2',{x2:'Pair BT 2'}),k('BT 3',{x2:'Pair BT 3'}),k('2.4G',{n:'Switch to the 2.4 GHz dongle.'}),T,T,k('×'),k('÷'),k('+'),k('−'),k('Boot',{lp:'Bootloader',lpt:'3 s',n:'Tap does nothing. Hold 3 seconds to enter the bootloader for flashing.'}),k('Search'),T],
+ [T,T,T,T,k('2.4G'),T,k('Del'),k('7'),k('8'),k('9'),k('⌫'),T,T,N],
+ [N,k('∧'),k('⌘'),k('⌥'),k('⇧'),T,k('Tab'),k('4'),k('5'),k('6'),k('Enter'),T,T],
+ [T,T,T,T,T,T,k(','),k('1'),k('2'),k('3'),k('.'),k('⌃⌘Space',{n:'Opens the emoji & symbols picker.'})],
+ [T,T,T,k('0'),k('∧'),N,k('Home'),[k('PgUp'),k('PgDn')],k('End')]];
+L.sym.rows=[
+ [k('Base',{to:'base'}),...F13,T],
+ [T,T,T,T,T,T,T,T,T,T,k('⌘0',{n:'Reset zoom'}),k('⌘−',{n:'Zoom out'}),k('⌘=',{n:'Zoom in'}),T],
+ [k('`'),k('!'),k('@'),k('#'),k('$'),k('%'),k('^'),k('&'),k('*'),k('-',{x2:'_'}),k('=',{x2:'+'}),T,T,T],
+ [k('~'),k('∧'),k('⌘'),k('⌥'),k('⇧'),N,N,k('(',{x2:')',x3:'()',n:'Triple-tap types both brackets.'}),k('{',{x2:'}',x3:'{}'}),k('[',{x2:']',x3:'[]'}),T,T,k('=')],
+ [T,N,N,N,N,N,N,N,k('<'),k('>'),k('?'),k('⌃⌘Space',{n:'Opens the emoji & symbols picker.'})],
+ [T,T,T,T,T,T,k('←'),[k('↑'),k('↓')],k('→')]];
+L.nav.rows=[
+ [k('Base',{to:'base'}),...F13,T],
+ [N,N,N,k('#'),N,k('Wheel ↓'),N,N,k('Space'),N,k('Btn 1'),k('Mouse ↑'),k('Btn 2'),N],
+ [N,k('⌘Q'),k('⌘W'),k('Wheel ←'),k('Wheel ↑'),k('Wheel →'),k('⌘Y'),k('Del'),k('↑'),k('⌫'),k('Mouse ←'),k('Mouse ↓'),k('Mouse →'),N],
+ [N,k('∧'),k('⌘'),k('⌥'),k('⇧'),N,k('Home'),k('←'),k('↓'),k('→'),k('End'),N,N],
+ [N,k('⌘Z'),k('⌘X'),k('⌘C',{x2:'⌘⇧C',x3:'⌃⇧C',n:'Copy · double-tap copies without formatting · triple-tap copies in terminal.'}),k('⌘V',{x2:'⌃V',x3:'⌃⇧V',n:'Paste · double and triple tap send the Ctrl variants for terminal apps.'}),k('⌘B'),k('PgUp'),k('PgDn'),k('⌃⇧Tab',{n:'Previous tab'}),k('⌃Tab',{n:'Next tab'}),k('⌘⇧/',{n:'Help menu search'}),N],
+ [k('Speed 1'),k('Speed 2'),k('Speed 3'),N,N,N,k('←'),[k('↑'),k('↓')],k('→')]];
+const blank=n=>Array(n).fill(N);
+L.mcro.rows=[[k('Base',{to:'base'}),...blank(13)],[N,k('Function',{to:'fn'}),k('Symbols',{to:'sym'}),k('Naviga­tion',{to:'nav'}),k('Reserved',{to:'res'}),...blank(9)],blank(14),blank(13),blank(12),[N,N,N,N,N,N,N,[N,N],N]];
+const ORDER=['base','fn','sym','nav','mcro'];
+
+/* ---------- colorways (production: swap board art for Keychron's SVG per colorway) ---------- */
+const COLORWAYS=[
+ {id:'space-gray',name:'Space Gray',sw:'#3b3b3d'},
+ {id:'ivory-white',name:'Ivory White',sw:'#fdfdfc'},
+ {id:'retro-red',name:'Retro Red',sw:'#93162a'},
+ {id:'retro-blue',name:'Retro Blue',sw:'#9ca4b2'},
+];
+const EE=['0-0','3-12'];
+const UT=['0-13','1-13','2-0','3-0','4-0','4-11','5-0','5-1','5-2','5-4','5-5','5-6','5-7-0','5-7-1','5-8'];
+
+/* ---------- combos: keys pressed together ----------
+   keys: positions held together · hold: time · out: result · fx: feedback · layer: where it works */
+const COMBOS=[
+ {id:'modswap',keys:['5-1','5-2'],layer:'base',hold:'3 s',out:'Swap ⌘ ⇄ ⌥',fx:'Lights flash 3×',
+  n:'Switches modifier order between Mac (∧ ⌥ ⌘) and Windows (Ctrl Win Alt) without separate OS layers. Hold again to switch back.'},
+];
+
+/* ---------- helpers ---------- */
+const parseId=id=>{const [r,c,s]=id.split('-').map(Number); return [r,c,Number.isNaN(s)?null:s]};
+const kid=(r,c,s)=>s==null?`${r}-${c}`:`${r}-${c}-${s}`;
+const SWAP={'5-1':k('⌘',{n:'Swapped: sends ⌘ (Win on Windows).'}),'5-2':k('⌥',{n:'Swapped: sends ⌥ (Alt on Windows).'})};
+const raw=(lid,r,c,s)=>{ if(lid==='base'&&state.swap&&SWAP[kid(r,c,s)]) return SWAP[kid(r,c,s)]; let v=L[lid].rows[r][c]; if(Array.isArray(v)) v=v[s??0]; return v};
+const combosFor=(lid,id)=>COMBOS.filter(c=>c.layer===lid&&(!id||c.keys.includes(id)));
+function resolve(lid,r,c,s){
+  const v=raw(lid,r,c,s), id=kid(r,c,s);
+  if((HELD[lid]||[]).includes(id)) return {kind:'held'};
+  if(v===T) return {kind:'trans',b:raw('base',r,c,s)};
+  if(v==null) return {kind:'none'};
+  return {kind:'key',b:v};
+}
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const clean=s=>String(s).replace(/­/g,'');
+function keyName(r,c,s){
+  let v0=L.base.rows[r][c]; if(Array.isArray(v0)) v0=v0[s??0]; let n=clean(v0.t); if(r===5&&c===1) n='Left ⌥';
+  if(r===3&&c===0) n='Esc (home row)'; if(r===0&&c===0) n='Esc (top row)';
+  if(r===4) n=c===0?'Left Shift':c===11?'Right Shift':n;
+  if(r===5&&c===2) n='Left ⌘'; if(r===5&&c===4) n='Right ⌘';
+  return n;
+}
+function gestures(b){
+  const g=[]; if(!b) return g;
+  if(b.to) g.push({g:'tap',name:'Tap',d:b.to==='res'?'Locks the Reserved layer':'Locks the '+L[b.to].name+' layer on',out:'⇒ '+(b.to==='res'?'Reserved':L[b.to].name),lay:b.to==='res'?null:b.to});
+  else if(b.os) g.push({g:'os',name:'Tap',d:'Next key comes from '+L[b.os].name,out:L[b.os].name+' ×1',lay:b.os});
+  else if(b.lp) g.push({g:'tap',name:'Tap',d:'No action on a short press',out:'—'});
+  else g.push({g:'tap',name:'Tap',d:'Press and release',out:clean(b.t)});
+  if(b.sh) g.push({g:'shift',name:'Shift + tap',d:'With either Shift held',out:b.sh});
+  if(b.x2) g.push({g:'x2',name:'Double-tap',d:'Two quick taps',out:b.x2});
+  if(b.x3) g.push({g:'x3',name:'Triple-tap',d:'Three quick taps',out:b.x3});
+  if(b.hl) g.push({g:'hold',name:'Hold',d:'Layer active while held',out:L[b.hl].name,lay:b.hl});
+  if(b.h) g.push({g:'hold',name:'Hold',d:'Modifier while held',out:b.h});
+  if(b.lp) g.push({g:'long',name:'Long-press',d:'Hold for '+b.lpt,out:b.lp});
+  return g;
+}
+function comboGestures(lid,id){
+  return combosFor(lid,id).map(c=>{const other=c.keys.filter(x=>x!==id).map(x=>{const [r,cc,s]=parseId(x); return keyName(r,cc,s)}).join(' + ');
+    return {g:'combo',name:'Combo · with '+other,d:'Hold both '+c.hold+' · '+c.fx,out:c.out,combo:c.id}});
+}
+const GC={tap:'var(--ink)',os:'var(--ink)',shift:'#6CC0F0',x2:'#F37FA4',x3:'#F37FA4',hold:'var(--ink)',long:'var(--muted)',combo:'var(--ink)'};
+function timing(g,w=64,h=18){
+  const P=x=>`<rect x="${x}" y="4" width="6" height="10" rx="1.5" fill="currentColor"/>`;
+  let b='<line x1="2" y1="15.5" x2="62" y2="15.5" stroke="currentColor" stroke-opacity=".3"/>';
+  if(g==='tap') b+=P(6);
+  if(g==='x2') b+=P(6)+P(16);
+  if(g==='x3') b+=P(6)+P(16)+P(26);
+  if(g==='shift') b+=`<rect x="3" y="12" width="28" height="3" rx="1" fill="currentColor" fill-opacity=".55"/><rect x="14" y="4" width="6" height="6" rx="1.5" fill="currentColor"/>`;
+  if(g==='hold') b+=`<rect x="6" y="4" width="50" height="10" rx="1.5" fill="currentColor"/><line x1="23" y1="1" x2="23" y2="17" stroke="var(--recess)" stroke-width="1.5" stroke-dasharray="2 2"/>`;
+  if(g==='long') b+=`<rect x="4" y="4" width="56" height="10" rx="1.5" fill="currentColor" fill-opacity=".45"/><line x1="52" y1="1" x2="52" y2="17" stroke="currentColor" stroke-width="1.5"/>`;
+  if(g==='combo') b+=`<rect x="4" y="2" width="50" height="5" rx="1.5" fill="currentColor"/><rect x="4" y="9" width="50" height="5" rx="1.5" fill="currentColor"/><line x1="54" y1="0" x2="54" y2="17" stroke="currentColor" stroke-width="1.5"/>`;
+  if(g==='os') b+=P(6)+`<path d="M17 9h36l-4-3.2M53 9l-4 3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 2"/>`;
+  return `<svg class="tsvg" width="${w}" height="${h}" viewBox="0 0 64 18" aria-hidden="true">${b}</svg>`;
+}
+
+/* ---------- state ---------- */
+let state={layer:'base',lens:'all',pinned:'3-7',hover:null,peek:null,cw:'space-gray',mode:'key',swap:false};
+try{const s=JSON.parse(localStorage.getItem('kx2')||'{}'); if(L[s.layer]) state.layer=s.layer; if(s.lens) state.lens=s.lens; if(COLORWAYS.some(c=>c.id===s.cw)) state.cw=s.cw}catch(e){}
+const save=()=>{try{localStorage.setItem('kx2',JSON.stringify({layer:state.layer,lens:state.lens,cw:state.cw}))}catch(e){}};
+const viewLayer=()=>state.peek||state.layer;
+let shiftHeld=false;
+const effLens=()=>shiftHeld&&state.lens==='all'?'shift':state.lens;
+
+/* ---------- board ---------- */
+const board=document.getElementById('board');
+const size=s=>{const n=clean(s).length; return n<=2?'':n<=5?'m':'s'};
+function capHTML(res,lens,id,lid){
+  if(res.kind==='none') return {cls:'none',html:''};
+  if(res.kind==='held') return {cls:'held',html:'<span class="c">held</span>'};
+  const b=res.b, cls=[res.kind==='trans'?'trans':''];
+  if(lens!=='all'){
+    if(res.kind==='trans') return {cls:'trans dim',html:''};
+    if(lens==='combo'){ const b=res.b; return combosFor(lid,id).length?{cls:'combo-on',html:`<span class="c ${size(b.t)}">${esc(b.t)}</span>`}:{cls:'dim',html:`<span class="c ${size(b.t)}">${esc(b.t)}</span>`} }
+    let v=null, sub='', lay=null;
+    if(lens==='tap'){v=b.to?'⇒ '+(L[b.to]?.short||'Res'):b.os?'Macro ×1':b.lp?null:b.t; lay=b.to||b.os}
+    if(lens==='shift') v=b.sh;
+    if(lens==='multi'&&b.x2){v=b.x2; if(b.x3) sub='3× '+b.x3}
+    if(lens==='hold'){ if(b.hl){v='▸ '+L[b.hl].short; lay=b.hl} else if(b.h) v=b.h; else if(b.lp){v=b.lp; sub=b.lpt}}
+    if(v==null) return {cls:'dim',html:`<span class="c ${size(b.t)}">${esc(b.t)}</span>`};
+    cls.push('lensed','l-'+lens); if(lay&&L[lay]) cls.push('tolayer');
+    return {cls:cls.join(' '),html:`<span class="c ${size(v)}">${esc(v)}${sub?`<small>${esc(sub)}</small>`:''}</span>`,h:lay&&L[lay]?.hue};
+  }
+  let html='';
+  if(state.swap&&lid==='base'&&SWAP[id]) html+=`<span class="tl" style="color:var(--lg)">⇄</span>`;
+  if(b.os) html+=`<span class="tl" style="color:${L[b.os].hue}">⇢${L[b.os].short}</span>`;
+  if(b.x2){const t=b.x3&&(clean(b.x2)+clean(b.x3)).length<=4?`²${b.x2} ³${b.x3}`:`²${b.x2}${b.x3?'…':''}`; html+=`<span class="tl">${esc(t)}</span>`}
+  if(b.sh) html+=`<span class="tr">${esc(b.sh)}</span>`;
+  let label=b.t, hue=null;
+  if(b.to){label='⇒ '+b.t; hue=b.to==='res'?'#C9CED6':L[b.to].hue}
+  html+=`<span class="c ${size(label)} ${b.to?'to':''}">${esc(label)}</span>`;
+  if(b.hl) html+=`<span class="band lay" style="--h:${L[b.hl].hue}">▸ ${L[b.hl].short}</span>`;
+  else if(b.h) html+=`<span class="band mod">${esc(b.h)}</span>`;
+  else if(b.lp) html+=`<span class="band long">${esc(b.lpt)} ▸ ${esc(b.lp)}</span>`;
+  return {cls:cls.join(' '),html,h:hue};
+}
+function renderBoard(){
+  const lid=viewLayer(), lens=effLens(), cur=state.hover||state.pinned;
+  let out=`<div class="statusline">B1 Pro · layer ${L[lid].num} · ${L[lid].name}${state.peek?' · peek':''}</div>`;
+  GRID.forEach((row,r)=>row.forEach((g,c)=>{
+    const subs=Array.isArray(g[0])?g.map((gg,s)=>[gg,s]):[[g,null]];
+    subs.forEach(([gg,s])=>{
+      const id=kid(r,c,s), res=resolve(lid,r,c,s), cap=capHTML(res,lens,id,lid), [x0,y0,x1,y1]=gg;
+      const grp=EE.includes(id)?' ee':UT.includes(id)?' ut':'';
+      const st=`left:${x0/388*100}%;top:${y0/173*100}%;width:${(x1-x0)/388*100}%;height:${(y1-y0)/173*100}%;--h:${res.kind==='held'?L[lid].hue:(cap.h||'#fff')}`;
+      const hl=res.kind==='key'&&res.b.hl?` data-hl="${res.b.hl}"`:'';
+      out+=`<div class="key ${cap.cls}${grp}${s!=null?' stacked':''}${cur===id?' sel':''}" data-id="${id}"${hl} style="${st}" role="button" tabindex="${res.kind==='none'?-1:0}" aria-label="${esc(keyName(r,c,s))}">${cap.html}</div>`;
+    });
+  }));
+  combosFor(lid).forEach(c=>{
+    const pts=c.keys.map(x=>{const [r,cc,s]=parseId(x); let g=GRID[r][cc]; if(s!=null) g=g[s]; return g});
+    const cx=pts.map(g=>(g[0]+g[2])/2), y=Math.max(...pts.map(g=>g[1]))-1.6, x0=Math.min(...cx), x1=Math.max(...cx);
+    out+=`<div class="combo ${lens==='combo'?'':'quiet'}" style="left:${x0/388*100}%;width:${(x1-x0)/388*100}%;top:${y/173*100}%;height:${3.2/173*100}%"><i class="br"></i><span class="pill">${esc(c.hold)} ⇄</span></div>`;
+  });
+  board.innerHTML=out;
+}
+function markSel(){const cur=state.hover||state.pinned; board.querySelectorAll('.key').forEach(k=>k.classList.toggle('sel',k.dataset.id===cur))}
+
+/* ---------- strips ---------- */
+function renderLayers(){
+  document.getElementById('layers').innerHTML=ORDER.map(id=>`<button class="tab" data-layer="${id}" aria-pressed="${viewLayer()===id}" title="${esc(L[id].how)}" style="--h:${L[id].hue}"><i></i>${L[id].name}</button>`).join('');
+}
+function lensCounts(lid){
+  const c={tap:0,shift:0,multi:0,hold:0,combo:combosFor(lid).length};
+  L[lid].rows.flat(2).forEach(b=>{if(!b||b===T) return; if(!b.lp) c.tap++; if(b.sh) c.shift++; if(b.x2) c.multi++; if(b.h||b.hl||b.lp) c.hold++});
+  return c;
+}
+function renderLens(){
+  const c=lensCounts(viewLayer()), eff=effLens();
+  const items=[['all','All',null],['tap','Tap','tap'],['shift','Shift','shift'],['multi','Multi-tap','x2'],['hold','Hold','hold'],['combo','Combo','combo']];
+  document.getElementById('lens').innerHTML=items.map(([id,n,g])=>`<button data-lens="${id}" aria-pressed="${eff===id}" style="--c:${g?GC[g]:'inherit'}">${g?`<span class="g">${timing(g,18,10)}</span>`:''}${n}${g?` <span class="ct">${c[id]}</span>`:''}</button>`).join('');
+}
+function renderAnn(){
+  const lid=viewLayer(), held=(HELD[lid]||[]).map(id=>{const [r,c]=id.split('-').map(Number); return keyName(r,c)}).join(' / ');
+  document.getElementById('ann').innerHTML=
+   `<span style="--h:${L[lid].hue}"><i class="led on"></i>Layer <b>${L[lid].name}</b></span>`+
+   `<span style="--h:${L[lid].hue}"><i class="led ${held?'on':''}"></i>${lid==='mcro'?'Tapped':'Hold'} <b>${held?esc(held.replace(' (home row)','')):'—'}</b></span>`+
+   `<span style="--h:#E4E7EA"><i class="led ${state.swap?'on':''}"></i>Mods <b>${state.swap?'Win order':'Mac order'}</b></span>`+
+   `<span style="--h:#6CC0F0"><i class="led ${effLens()==='shift'?'on':''}"></i>Shift</span>`+
+   `<span style="--h:${state.peek?L[state.peek].hue:'#fff'}"><i class="led ${state.peek?'on':''}"></i>Peek</span>`;
+}
+function renderLivery(){
+  const cw=COLORWAYS.find(c=>c.id===state.cw);
+  document.getElementById('livery').innerHTML=`<span class="nm">${cw.name}</span>`+COLORWAYS.map(c=>`<button class="chip" data-cw="${c.id}" aria-pressed="${c.id===state.cw}" aria-label="${c.name}" title="${c.name}" style="--sw:${c.sw}"></button>`).join('');
+  document.documentElement.setAttribute('data-cw',state.cw);
+}
+
+/* ---------- MFD ---------- */
+const mfd=document.getElementById('mfd');
+function mfdKey(){
+  const id=state.hover||state.pinned;
+  if(!id) return '<p style="color:var(--muted)">Hover or click a key to see everything it does.</p>';
+  const [r,c,s]=parseId(id), lid=viewLayer(), res=resolve(lid,r,c,s), name=keyName(r,c,s), b=res.b;
+  let gl=[], sub;
+  if(res.kind==='key'){gl=gestures(b).concat(comboGestures(lid,id)); sub=`${gl.length} ${gl.length===1?'behavior':'behaviors'} on ${L[lid].name}`}
+  else if(res.kind==='trans'){gl=gestures(b); sub=`Falls through to Base on ${L[lid].name}`}
+  else if(res.kind==='held') sub=`The key you hold to reach ${L[lid].name}`;
+  else sub=`No action on ${L[lid].name}`;
+  const cap=b&&res.kind!=='held'?clean(b.to?'⇒ '+b.t:b.t):res.kind==='held'?'held':'—';
+  let left=`<div class="khead"><div class="mini ${cap.length>3?'sm':''}">${esc(cap)}</div><div><h2>${esc(name)}${!state.hover&&state.pinned===id?'<span class="pin">pinned</span>':''}</h2><div class="sub">${esc(sub)}</div></div></div>`;
+  if(gl.length) left+='<ul class="rows">'+gl.map(g=>`<li style="--c:${GC[g.g]}">${timing(g.g)}<span><div class="gn">${g.name}</div><div class="gd">${esc(g.d)}</div></span><span class="out ${g.lay?'lay':''}" style="${g.lay?`--h:${L[g.lay].hue}`:''}">${esc(g.out)}</span>${g.combo?`<span></span><span><button class="try" data-try="${g.combo}">Try it: hold for ${esc(COMBOS.find(c=>c.id===g.combo).hold)}</button></span><span></span>`:''}</li>`).join('')+'</ul>';
+  const notes=[b&&res.kind!=='none'&&b.n, ...combosFor(lid,id).map(c=>c.n)].filter(Boolean);
+  if(notes.length) left+=`<div class="notes">${notes.map(esc).join('<br>')}</div>`;
+  let right=`<div class="lbl">Same key, every layer</div><ul class="xl">`;
+  ORDER.forEach(l=>{
+    const rr=resolve(l,r,c,s); let v;
+    if(rr.kind==='key'){const x=rr.b, main=x.to?'⇒ '+clean(x.t):x.lp?'—':clean(x.t);
+      v=`<span class="v">${esc(main)}${x.sh?`<em class="s">⇧ ${esc(x.sh)}</em>`:''}${x.x2?`<em class="m">2× ${esc(x.x2)}</em>`:''}${x.x3?`<em class="m">3× ${esc(x.x3)}</em>`:''}${x.hl?`<em>hold ▸ ${L[x.hl].short}</em>`:x.h?`<em>hold ${esc(x.h)}</em>`:''}${x.lp?`<em>${esc(x.lpt)} ${esc(x.lp)}</em>`:''}</span>`}
+    else v=`<span class="v none">${rr.kind==='trans'?'same as Base':rr.kind==='held'?'held to get here':'no action'}</span>`;
+    right+=`<li><button data-goto="${l}" aria-current="${l===lid}" style="--h:${L[l].hue}"><i class="dot"></i><span class="ln">${L[l].name}<small>${esc(L[l].how)}</small></span>${v}</button></li>`;
+  });
+  return `<div class="split"><div>${left}</div><div>${right}</ul></div></div>`;
+}
+function mfdLegend(){
+  const items=[['tap','Tap','Center. Colored ⇒ switches layer.'],['shift','Shift','Top-right, blue.'],['x2','Multi-tap','Top-left, pink. ² double, ³ triple.'],['hold','Hold','Bottom band. Gray = modifier, colored = layer.'],['long','Long-press','Striped band with hold time.'],['os','One-shot','Top-left ⇢. Next key only.'],['combo','Combo','Dashed bridge between keys, pill shows hold time.']];
+  return `<div class="dec"><div class="anat" aria-hidden="true"><div class="bigcap"><span class="tl">²)</span><span class="tr">:</span><span class="c">J</span><span class="band">▸ Sym</span></div>
+   <div class="lb" style="left:0;top:12px;width:76px;text-align:right">top-left<b>Multi-tap</b></div><div class="lb" style="left:194px;top:12px">top-right<b>Shift</b></div>
+   <div class="lb" style="left:0;top:58px;width:76px;text-align:right">center<b>Tap</b></div><div class="lb" style="left:194px;top:92px">band<b>Hold</b></div></div>
+   <ul class="declist">${items.map(([g,n,d])=>`<li><span style="color:${GC[g]}">${timing(g,58,16)}</span><span><b>${n}</b>${d}</span></li>`).join('')}</ul></div>`;
+}
+function mfdFlash(){
+  return `<ol class="steps"><li><b>Download the release</b>Keychron B1 Pro · ZMK · macOS layers · .zip<span style="color:var(--faint)">Disabled in this prototype.</span></li>
+   <li><b>Enter the bootloader</b>Hold Esc (home row) to reach Function, then long-press Boot for 3 seconds.<button class="linkbtn" id="showBoot">Show me the Boot key</button></li>
+   <li><b>Flash the firmware</b>Follow the release notes in the .zip. Your current layout stays until you flash.</li></ol>`;
+}
+function renderMFD(){
+  document.querySelectorAll('#mfdTabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.mode===state.mode)));
+  mfd.innerHTML=state.mode==='key'?mfdKey():state.mode==='legend'?mfdLegend():mfdFlash();
+}
+function renderAll(){renderLayers();renderLens();renderBoard();renderAnn();renderLivery();renderMFD()}
+
+/* ---------- interaction ---------- */
+let pressTimer=null, pressId=null, peeking=false;
+const toKeyMode=()=>{ if(state.mode!=='key'){state.mode='key'} };
+board.addEventListener('pointerover',e=>{const k=e.target.closest('.key'); if(!k||k.classList.contains('none')) return; if(state.hover!==k.dataset.id){state.hover=k.dataset.id; toKeyMode(); markSel(); renderMFD()}});
+board.addEventListener('pointerleave',()=>{if(state.hover){state.hover=null; markSel(); renderMFD()}});
+board.addEventListener('pointerdown',e=>{const k=e.target.closest('.key'); if(!k||k.classList.contains('none')) return; pressId=k.dataset.id;
+  if(k.dataset.hl) pressTimer=setTimeout(()=>{peeking=true; state.peek=k.dataset.hl; renderAll()},230)});
+window.addEventListener('pointerup',()=>{clearTimeout(pressTimer);
+  if(peeking){peeking=false; state.peek=null; pressId=null; renderAll(); return}
+  if(pressId){state.pinned=pressId; state.hover=null; pressId=null; markSel(); renderMFD()}});
+board.addEventListener('keydown',e=>{const k=e.target.closest('.key'); if(k&&(e.key==='Enter'||e.key===' ')){e.preventDefault(); state.pinned=k.dataset.id; toKeyMode(); markSel(); renderMFD()}});
+board.addEventListener('focusin',e=>{const k=e.target.closest('.key'); if(k){state.hover=k.dataset.id; toKeyMode(); renderMFD()}});
+document.getElementById('layers').addEventListener('click',e=>{const b=e.target.closest('[data-layer]'); if(!b) return; state.layer=b.dataset.layer; save(); renderAll()});
+document.getElementById('lens').addEventListener('click',e=>{const b=e.target.closest('[data-lens]'); if(!b) return; state.lens=b.dataset.lens; save(); renderLens(); renderBoard(); renderAnn()});
+document.getElementById('livery').addEventListener('click',e=>{const b=e.target.closest('[data-cw]'); if(!b) return; state.cw=b.dataset.cw; save(); renderLivery()});
+document.getElementById('mfdTabs').addEventListener('click',e=>{const b=e.target.closest('[data-mode]'); if(!b) return; state.mode=b.dataset.mode; renderMFD()});
+mfd.addEventListener('click',e=>{
+  const g=e.target.closest('[data-goto]'); if(g){state.layer=g.dataset.goto; save(); renderAll(); return}
+  const t=e.target.closest('[data-try]'); if(t){ runCombo(t.dataset.try); return }
+  if(e.target.id==='showBoot'){state.layer='fn'; state.lens='all'; state.pinned='1-11'; state.mode='key'; save(); renderAll(); board.scrollIntoView({behavior:'smooth',block:'center'})}
+});
+document.getElementById('getBtn').addEventListener('click',()=>{state.mode='flash'; renderMFD(); document.querySelector('.mfd').scrollIntoView({behavior:'smooth',block:'nearest'})});
+window.addEventListener('keydown',e=>{if(e.key==='Shift'&&!shiftHeld){shiftHeld=true; renderLens(); renderBoard(); renderAnn()} if(e.key==='Escape'){state.pinned=null; renderAll()}});
+window.addEventListener('keyup',e=>{if(e.key==='Shift'){shiftHeld=false; renderLens(); renderBoard(); renderAnn()}});
+window.addEventListener('blur',()=>{if(shiftHeld){shiftHeld=false; renderLens(); renderBoard(); renderAnn()}});
+function runCombo(id){
+  if(id!=='modswap') return;
+  board.classList.remove('flash'); void board.offsetWidth; board.classList.add('flash');
+  setTimeout(()=>{state.swap=!state.swap; renderAll()},1000);
+}
+board.addEventListener('animationend',()=>board.classList.remove('flash'));
+renderAll();
+</script>
+</body></html>

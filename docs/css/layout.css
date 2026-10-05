@@ -242,12 +242,37 @@ h1 {
   margin-top: 0.4rem;
 }
 
+/* Sidebar Nav Header with Multi-Colored Isometric Stack */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.65rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-header-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.sidebar-header-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
 .sidebar-group-label {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--sidebar-label);
-  padding: 0.6rem 0.65rem 0.3rem;
+  padding: 0.4rem 0.65rem 0.25rem;
 }
 
 .layer-btn {
@@ -368,7 +393,7 @@ h1 {
 
 .stage-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
@@ -376,10 +401,29 @@ h1 {
 }
 
 .stage-head h2 {
-  font-size: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.35rem;
   font-weight: 600;
   margin: 0;
   letter-spacing: -0.01em;
+}
+
+.stage-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.08));
+}
+
+.stage-title-icon svg {
+  width: 42px;
+  height: 42px;
+  display: block;
 }
 
 .platform-tag {
@@ -583,6 +627,117 @@ h1 {
 .info-chip.shift {
   background: var(--tertiary-soft);
   color: var(--tertiary-text);
+}
+
+/* ---------- Firmware Action Matrix (The Secret Compartment Breakdown) ---------- */
+.info-powers-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem;
+  background: var(--surface);
+  margin-top: 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.info-powers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.info-powers-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.superpower-mini-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.info-powers-status {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--key-cover-inert);
+  color: var(--text-muted);
+}
+
+.info-powers-status.has-powers {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.info-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.matrix-cell {
+  background: var(--key-cover-inert);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  transition: border-color 0.12s ease;
+}
+
+.matrix-cell.has-action {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.matrix-cell-full {
+  grid-column: 1 / -1;
+}
+
+.matrix-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.matrix-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tag-tap { color: var(--text); }
+.tag-hold { color: #009d89; }
+.tag-dance { color: #d97706; }
+.tag-long { color: #ef4444; }
+.tag-combo { color: #8b5cf6; }
+
+.matrix-val {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.matrix-val.active {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .credit {

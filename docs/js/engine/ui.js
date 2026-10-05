@@ -7,6 +7,8 @@ import {
   renderLayer,
   attachDelegatedEvents,
   getCellFromLayer,
+  resolveFirmwareMatrix,
+  hasSuperpower,
 } from "./renderer.js";
 import { createStore } from "./store.js";
 
@@ -61,7 +63,11 @@ export function escapeHtml(str) {
  * @returns {string}
  */
 export function getKeyRole(cell) {
-  if (cell.h && cell.t) return "Dual-Role Key";
+  if (cell.icon?.startsWith("layer-") || (cell.t && /^(?:⇒|=>)/.test(cell.t))) return "Layer Activation";
+  if (cell.h && cell.t) {
+    if (/(?:sym|nav|func|macro|base|reserved)/i.test(cell.h)) return "Layer Hold Switch";
+    return "Dual-Role Key";
+  }
   if (cell.icon) return "Media Icon";
   if (cell.sh) return "Shifted Key";
   return "Standard Binding";
@@ -74,8 +80,25 @@ export function getKeyRole(cell) {
  */
 export function getKeyNote(cell) {
   if (cell.n) return escapeHtml(cell.n);
+  if (cell.t && /^(?:⇒|=>)\s*Base/i.test(cell.t)) {
+    return "Tap to activate and return to the <strong>Base Layer</strong>.";
+  }
+  if (cell.t && /^(?:⇒|=>)\s*([A-Za-z0-9_-]+)/i.test(cell.t)) {
+    const match = cell.t.match(/^(?:⇒|=>)\s*([A-Za-z0-9_-]+)/i);
+    return `Tap to activate and switch to the <strong>${escapeHtml(match[1])} Layer</strong>.`;
+  }
   if (cell.h && cell.t) {
-    return `Single tap emits <strong>${escapeHtml(cell.t)}</strong>. Hold emits <strong>${escapeHtml(cell.h)}</strong>.`;
+    if (/nav/i.test(cell.h)) {
+      return `Single tap emits <strong>${escapeHtml(cell.t)}</strong>. Hold momentarily activates the <strong>Navigation Layer</strong>.`;
+    }
+    if (/func/i.test(cell.h)) {
+      return `Single tap emits <strong>${escapeHtml(cell.t)}</strong>. Hold momentarily activates the <strong>Function Layer</strong>.`;
+    }
+    if (/sym/i.test(cell.h)) {
+      return `Single tap emits <strong>${escapeHtml(cell.t)}</strong>. Hold momentarily activates the <strong>Symbols Layer</strong>.`;
+    }
+    const cleanHold = cell.h.replace(/^[→⇒=>\s]+/, "");
+    return `Single tap emits <strong>${escapeHtml(cell.t)}</strong>. Hold emits <strong>${escapeHtml(cleanHold)}</strong>.`;
   }
   if (cell.t) {
     return `Standard keypress action for <strong>${escapeHtml(cell.t)}</strong> on this layer.`;
@@ -161,6 +184,19 @@ export function initUI(allLayers, grid, externalStore) {
     infoShift: document.getElementById("info-shift"),
     infoNote: document.getElementById("info-note"),
 
+    // Firmware Action Matrix
+    matrixTap: document.getElementById("matrix-tap"),
+    matrixHold: document.getElementById("matrix-hold"),
+    matrixDance: document.getElementById("matrix-dance"),
+    matrixLong: document.getElementById("matrix-long"),
+    matrixCombo: document.getElementById("matrix-combo"),
+    powersStatus: document.getElementById("info-powers-status"),
+    cellMatrixTap: document.getElementById("cell-matrix-tap"),
+    cellMatrixHold: document.getElementById("cell-matrix-hold"),
+    cellMatrixDance: document.getElementById("cell-matrix-dance"),
+    cellMatrixLong: document.getElementById("cell-matrix-long"),
+    cellMatrixCombo: document.getElementById("cell-matrix-combo"),
+
     // Changelog Modal
     changelogModal: document.getElementById("changelog-modal"),
     modalTitle: document.getElementById("modal-title"),
@@ -204,6 +240,38 @@ export function initUI(allLayers, grid, externalStore) {
   function renderInspector(cell, activeLayer) {
     if (!dom.infoKey || !dom.infoTap || !dom.infoHold || !dom.infoShift || !dom.infoNote) return;
 
+    const updateMatrix = (matrix) => {
+      if (!dom.matrixTap) return;
+      dom.matrixTap.textContent = matrix.tap;
+      dom.matrixHold.textContent = matrix.hold;
+      dom.matrixDance.textContent = matrix.dance;
+      dom.matrixLong.textContent = matrix.long;
+      dom.matrixCombo.innerHTML = matrix.combo;
+
+      const setCellState = (cellEl, valEl, val) => {
+        if (!cellEl || !valEl) return;
+        const hasAction = Boolean(val && val !== "—");
+        cellEl.classList.toggle("has-action", hasAction);
+        valEl.classList.toggle("active", hasAction);
+      };
+
+      setCellState(dom.cellMatrixTap, dom.matrixTap, matrix.tap);
+      setCellState(dom.cellMatrixHold, dom.matrixHold, matrix.hold);
+      setCellState(dom.cellMatrixDance, dom.matrixDance, matrix.dance);
+      setCellState(dom.cellMatrixLong, dom.matrixLong, matrix.long);
+      setCellState(dom.cellMatrixCombo, dom.matrixCombo, matrix.combo);
+
+      if (dom.powersStatus) {
+        if (matrix.isSpecial) {
+          dom.powersStatus.textContent = "✦ Superpowered Key";
+          dom.powersStatus.classList.add("has-powers");
+        } else {
+          dom.powersStatus.textContent = "Standard Key";
+          dom.powersStatus.classList.remove("has-powers");
+        }
+      }
+    };
+
     if (!cell) {
       dom.infoKey.textContent = "—";
       if (dom.infoPos) dom.infoPos.textContent = "No Key Selected";
@@ -214,6 +282,14 @@ export function initUI(allLayers, grid, externalStore) {
       dom.infoShift.textContent = "—";
       dom.infoNote.innerHTML =
         "Hover or click any key on the keyboard to inspect its bindings and firmware behavior.";
+      updateMatrix({
+        tap: "—",
+        hold: "—",
+        dance: "—",
+        long: "—",
+        combo: "—",
+        isSpecial: false,
+      });
       return;
     }
 
@@ -227,12 +303,25 @@ export function initUI(allLayers, grid, externalStore) {
       dom.infoShift.textContent = "—";
       dom.infoNote.innerHTML =
         "Inherits whatever this physical position outputs on the <strong>Base Layer</strong>.";
+      updateMatrix({
+        tap: "Inherits Base Layer (&trans)",
+        hold: "—",
+        dance: "—",
+        long: "—",
+        combo: "—",
+        isSpecial: false,
+      });
       return;
     }
 
     dom.infoKey.textContent = cell.t || (cell.icon ? "★" : "—");
     if (dom.infoPos) dom.infoPos.textContent = getKeyRole(cell);
-    if (dom.infoTitle) {
+    const isLayerSwitch = cell.icon?.startsWith("layer-") || (cell.t && /^(?:⇒|=>)/.test(cell.t));
+    if (isLayerSwitch && dom.infoTitle) {
+      const match = (cell.t || "").match(/^(?:⇒|=>)\s*([A-Za-z0-9_-]+)/i);
+      const targetName = match ? `${match[1]} Layer` : "Target Layer";
+      dom.infoTitle.textContent = `Activate ${targetName}`;
+    } else if (dom.infoTitle) {
       dom.infoTitle.textContent = cell.h ? `${cell.t || "Key"}  /  ${cell.h}` : (cell.t || "Key Binding");
     }
 
@@ -255,6 +344,10 @@ export function initUI(allLayers, grid, externalStore) {
       : "—";
 
     dom.infoNote.innerHTML = getKeyNote(cell);
+
+    // Populate Firmware Action Matrix
+    const matrix = resolveFirmwareMatrix(cell);
+    updateMatrix(matrix);
   }
 
   function renderStage(state) {
@@ -271,9 +364,23 @@ export function initUI(allLayers, grid, externalStore) {
       if (dom.colorwaySwatch) dom.colorwaySwatch.style.display = "";
       if (dom.colorwaySlider) dom.colorwaySlider.style.display = "";
 
+      if (dom.layerSidebarEl && !dom.layerSidebarEl.querySelector(".layer-btn")) {
+        populateSidebar();
+      }
+
       const layer = allLayers[layerId];
       if (layer) {
-        dom.stageTitle.textContent = `${String(layer.num).padStart(2, "0")} · ${layer.name}`;
+        const iconId = getLayerIconId(layer);
+        const layerDisplayName = layer.name.toLowerCase().endsWith("layer")
+          ? layer.name
+          : `${layer.name} Layer`;
+
+        dom.stageTitle.innerHTML = `
+          <span class="stage-title-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="42" height="42"><use href="#${iconId}"></use></svg>
+          </span>
+          <span class="stage-title-text">${String(layer.num).padStart(2, "0")} · ${escapeHtml(layerDisplayName)}</span>
+        `;
         dom.stagePlatform.textContent = layer.platform === "mac" ? "macOS" : "Windows";
 
         // TASK-16: Derive switch indicator strictly from platform, eliminating magic numbers
@@ -305,6 +412,21 @@ export function initUI(allLayers, grid, externalStore) {
       );
       if (dom.colorwaySwatch) dom.colorwaySwatch.style.display = "none";
       if (dom.colorwaySlider) dom.colorwaySlider.style.display = "none";
+
+      if (dom.layerSidebarEl) {
+        dom.layerSidebarEl.innerHTML = `
+          <div class="sidebar-header">
+            <svg class="sidebar-header-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <use href="#icon-layers-stack"></use>
+            </svg>
+            <span class="sidebar-header-title">Layers</span>
+          </div>
+          <div class="sidebar-group">
+            <div class="sidebar-group-label">Catalog</div>
+            <div class="sidebar-coming-soon">Coming Soon</div>
+          </div>
+        `;
+      }
 
       if (dom.stageTitle) dom.stageTitle.textContent = "Coming Soon";
       if (dom.stagePlatform) {
@@ -584,9 +706,33 @@ export function initUI(allLayers, grid, externalStore) {
     });
   }
 
-  // Populate Layer Sidebar & Picker
-  if (dom.layerSidebarEl) {
+  // Resolve corresponding isometric layer icon symbol
+  function getLayerIconId(layer) {
+    const name = (layer.name || "").toLowerCase();
+    if (name.includes("sym")) return "icon-layer-symbols";
+    if (name.includes("nav")) return "icon-layer-navigation";
+    if (name.includes("func")) return "icon-layer-function";
+    if (name.includes("macro")) return "icon-layer-macro";
+    if (name.includes("reserved") || name.includes("uat")) return "icon-layer-reserved";
+    return "icon-layer-base";
+  }
+
+  // Populate Layer Sidebar & Header with Multi-Colored Isometric Stack
+  function populateSidebar() {
+    if (!dom.layerSidebarEl) return;
     dom.layerSidebarEl.innerHTML = "";
+
+    // Sidebar Nav Header with Universal Multi-Colored Isometric Stack
+    const headerEl = document.createElement("div");
+    headerEl.className = "sidebar-header";
+    headerEl.innerHTML = `
+      <svg class="sidebar-header-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <use href="#icon-layers-stack"></use>
+      </svg>
+      <span class="sidebar-header-title">Layers</span>
+    `;
+    dom.layerSidebarEl.appendChild(headerEl);
+
     const groups = [
       { name: "macOS", platform: "mac" },
       { name: "Windows", platform: "win" },
@@ -619,6 +765,8 @@ export function initUI(allLayers, grid, externalStore) {
       dom.layerSidebarEl.appendChild(groupEl);
     });
   }
+
+  populateSidebar();
 
   if (dom.mobilePickerEl) {
     dom.mobilePickerEl.innerHTML = "";

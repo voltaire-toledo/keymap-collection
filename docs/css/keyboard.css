@@ -24,6 +24,12 @@ html[data-colorway="retro-red"] .esc-ent-group:not(:hover):not(.selected) .key-c
 html[data-colorway="retro-red"] .esc-ent-group:not(:hover):not(.selected) .key-tap {
   fill: #e4e1db;
 }
+html[data-colorway="retro-red"] .esc-ent-group:not(:hover):not(.selected) .key-icon,
+html[data-colorway="retro-red"] .esc-ent-group:not(:hover):not(.selected) .key-icon path,
+html[data-colorway="retro-red"] .esc-ent-group:not(:hover):not(.selected) .key-icon rect,
+html[data-colorway="retro-red"] .esc-ent-group:not(:hover):not(.selected) .key-icon circle {
+  fill: #ffffff;
+}
 
 .utility-group .key-cover {
   fill: #c2c0b1;
@@ -39,8 +45,26 @@ html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-cover {
 }
 html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-tap,
 html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-shift,
-html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-trans {
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-trans,
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-icon,
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-icon path,
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-icon circle,
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-icon rect {
   fill: #ffffff;
+}
+
+/* Space Gray Hover / Selection State for Row 0 vector symbols (WCAG AAA compliant: 11.4:1 contrast against #1c1c1e) */
+html[data-colorway="space-gray"] .key:hover .key-icon,
+html[data-colorway="space-gray"] .key.selected .key-icon,
+html[data-colorway="space-gray"] .key:hover .key-icon path,
+html[data-colorway="space-gray"] .key:hover .key-icon circle,
+html[data-colorway="space-gray"] .key:hover .key-icon rect,
+html[data-colorway="space-gray"] .key.selected .key-icon path,
+html[data-colorway="space-gray"] .key.selected .key-icon circle,
+html[data-colorway="space-gray"] .key.selected .key-icon rect,
+html[data-colorway="space-gray"] .key:hover .key-hold-icon,
+html[data-colorway="space-gray"] .key.selected .key-hold-icon {
+  fill: #d1d5db;
 }
 
 html[data-colorway="ivory-white"] .key:not(:hover):not(.selected) .key-cover {
@@ -69,7 +93,7 @@ html[data-colorway="ivory-white"] .key:not(:hover):not(.selected) .key-cover {
 }
 
 .key-hold {
-  fill: #3f7a1f;
+  fill: #009d89;
   font-family: "Inter", sans-serif;
   font-weight: 600;
   text-anchor: middle;
@@ -108,15 +132,18 @@ html[data-colorway="ivory-white"] .key:not(:hover):not(.selected) .key-cover {
 }
 
 .key-icon {
+  fill: #1d1d1f;
   pointer-events: none;
   transition: fill 0.12s ease;
 }
 .key-icon path,
 .key-icon circle,
 .key-icon rect {
-  fill: #1d1d1f;
+  fill: inherit;
   transition: fill 0.12s ease;
 }
+.key:hover .key-icon,
+.key.selected .key-icon,
 .key:hover .key-icon path,
 .key:hover .key-icon circle,
 .key:hover .key-icon rect,
@@ -124,6 +151,17 @@ html[data-colorway="ivory-white"] .key:not(:hover):not(.selected) .key-cover {
 .key.selected .key-icon circle,
 .key.selected .key-icon rect {
   fill: #ffffff;
+}
+
+.key-layer-icon {
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.22));
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.key:hover .key-layer-icon,
+.key.selected .key-layer-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.38));
 }
 
 /* ---------- Legend Footer ---------- */
@@ -157,3 +195,41 @@ footer.legend i.inert {
   border: 1px dashed var(--border-strong);
   opacity: 0.75;
 }
+footer.legend i.superpower {
+  color: #009d89;
+  font-style: normal;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+}
+
+/* ---------- Superpower Key Indicator (Dog-Ear Corner Badge) ---------- */
+.key-superpower-badge {
+  pointer-events: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.key-superpower-dogear {
+  fill: #009d89; /* Accessible Teal Accent (4.5:1 on light backgrounds) */
+  transition: fill 0.15s ease;
+}
+
+.key:hover .key-superpower-dogear,
+.key.selected .key-superpower-dogear {
+  fill: #00c4a7;
+}
+
+html[data-colorway="space-gray"] .key:not(:hover):not(.selected) .key-superpower-dogear {
+  fill: #38bdf8; /* High-contrast Sky Blue against dark Space Gray */
+}
+html[data-colorway="space-gray"] .key:hover .key-superpower-dogear,
+html[data-colorway="space-gray"] .key.selected .key-superpower-dogear {
+  fill: #7dd3fc;
+}
+

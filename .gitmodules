@@ -1,6 +1,8 @@
 [submodule "ZMK"]
 	path = ZMK
 	url = https://github.com/voltaire-toledo/submod-zmk.git
+	branch = b1-pro-v0.25.x
 [submodule "QMK"]
 	path = QMK
 	url = https://github.com/voltaire-toledo/submod-qmk.git
+	branch = v1-max-mello

@@ -2,7 +2,7 @@
    Keychron B1 Pro - macOS Layer Definitions (ZMK)
    ====================================================================== */
 export const TRANS = { trans: true };
-export const K = (t, h, sh, n, icon) => ({ t, h, sh, n, icon });
+export const K = (t, h, sh, n, icon, holdIcon, powers) => ({ t, h, sh, n, icon, holdIcon, powers });
 
 export const NUM_ROW = [
   K("`", "", "~"),
@@ -62,8 +62,8 @@ export function homeRow(funcLabel, symLabel, gui, ctrlLabel = "Ctrl", altLabel =
     K("S", gui),
     K("D", altLabel),
     K("F", "Shift ⇧"),
-    K("G", symLabel),
-    K("H", symLabel),
+    K("G", symLabel, "", "Tap: G. Hold: momentarily activates Symbols Layer", null, "layer-symbols"),
+    K("H", symLabel, "", "Tap: H. Hold: momentarily activates Symbols Layer", null, "layer-symbols"),
     K("J", "Shift ⇧"),
     K("K", altLabel),
     K("L", gui),
@@ -124,19 +124,25 @@ export const B1PRO_MAC_LAYERS = {
     name: "Base",
     rows: [
       [
-        K("Esc", "Caps Lock"),
-        K("Brightness −", "", "F1", "", "brightness-down"),
-        K("Brightness +", "", "F2", "", "brightness-up"),
-        K("⧉", "", "F3", "Mission Control"),
-        K("Launchpad", "", "F4", "", "launchpad"),
-        K("Spotlight Search", "", "F5", "", "search"),
-        K("Lock Screen", "", "F6", "", "lock"),
-        K("⏮", "", "F7", "Previous Track"),
-        K("⏯", "", "F8", "Play/Pause"),
-        K("⏭", "", "F9", "Next Track"),
-        K("Mute", "", "F10", "", "mute"),
-        K("Volume −", "", "F11", "", "volume-down"),
-        K("Volume +", "", "F12", "", "volume-up"),
+        K("Esc", "Caps Lock", "", "Tap: Esc. Hold: Caps Lock. Hold 5s: Bootloader / DFU Mode", null, "caps-lock", {
+          tap: "Escape (Exit / Cancel)",
+          hold: "Caps Lock Toggle",
+          doubleTap: "—",
+          longHold: "Hold 5s: Enter Bootloader (DFU)",
+          combos: [{ withKeys: ["Backspace"], action: "Hard System Reset" }],
+        }),
+        K("Brightness −", "", "F1", "Decrease display brightness", "brightness-down"),
+        K("Brightness +", "", "F2", "Increase display brightness", "brightness-up"),
+        K("Mission Control", "", "F3", "Mission Control / Window Overview", "mission-control"),
+        K("Launchpad", "", "F4", "Launchpad / App launcher", "launchpad"),
+        K("Spotlight Search", "", "F5", "Spotlight Search", "search"),
+        K("Lock Screen", "", "F6", "Lock macOS screen", "lock"),
+        K("Previous Track", "", "F7", "Media Previous Track", "prev"),
+        K("Play/Pause", "", "F8", "Media Play / Pause", "play-pause"),
+        K("Next Track", "", "F9", "Media Next Track", "next"),
+        K("Mute", "", "F10", "Mute Audio Output", "mute"),
+        K("Volume −", "", "F11", "Decrease volume", "volume-down"),
+        K("Volume +", "", "F12", "Increase volume", "volume-up"),
         K("Del"),
       ],
       NUM_ROW,
@@ -170,9 +176,27 @@ export const B1PRO_MAC_LAYERS = {
       ],
       [
         TRANS,
-        K("BT 1", "", "", "Double-tap: pair BT 1"),
-        K("BT 2", "", "", "Double-tap: pair BT 2"),
-        K("BT 3", "", "", "Double-tap: pair BT 3"),
+        K("BT 1", "", "", "Tap: Select BT 1. Double-tap: pair BT 1. Hold 3s: clear profile.", null, null, {
+          tap: "Connect Bluetooth Profile 1",
+          hold: "—",
+          doubleTap: "Enter Bluetooth Pairing Mode",
+          longHold: "Hold 3s: Clear Profile Memory",
+          combos: [{ withKeys: ["BT 2"], action: "Toggle Bluetooth Output Mode" }],
+        }),
+        K("BT 2", "", "", "Tap: Select BT 2. Double-tap: pair BT 2. Hold 3s: clear profile.", null, null, {
+          tap: "Connect Bluetooth Profile 2",
+          hold: "—",
+          doubleTap: "Enter Bluetooth Pairing Mode",
+          longHold: "Hold 3s: Clear Profile Memory",
+          combos: [{ withKeys: ["BT 1"], action: "Toggle Bluetooth Output Mode" }],
+        }),
+        K("BT 3", "", "", "Tap: Select BT 3. Double-tap: pair BT 3. Hold 3s: clear profile.", null, null, {
+          tap: "Connect Bluetooth Profile 3",
+          hold: "—",
+          doubleTap: "Enter Bluetooth Pairing Mode",
+          longHold: "Hold 3s: Clear Profile Memory",
+          combos: [],
+        }),
         K("2.4G", "", "", "Switch to 2.4GHz dongle"),
         TRANS,
         TRANS,
