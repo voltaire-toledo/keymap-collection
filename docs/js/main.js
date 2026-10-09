@@ -1,5 +1,5 @@
 /* ======================================================================
-   VT Mello Keymaps - Main Application Bootstrap & ES Module Entry Point
+   VT Keymaps - Main Application Bootstrap & ES Module Entry Point
    ====================================================================== */
 import { GRID_B1PRO } from "./config/grid_b1pro.js";
 import { B1PRO_MAC_LAYERS } from "./layers/b1pro_mac_layers.js";

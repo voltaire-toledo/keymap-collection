@@ -1,5 +1,5 @@
 /* ======================================================================
-   VT Mello Keymaps - Modern UI Engine & View Controller
+   VT Keymaps - Modern UI Engine & View Controller
    Built with Reactive Unidirectional Flow & Event Delegation
    ====================================================================== */
 import { KEYBOARD_CATALOG } from "../config/catalog.js";

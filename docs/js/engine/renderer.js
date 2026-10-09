@@ -1,5 +1,5 @@
 /* ======================================================================
-   VT Mello Keymaps - High-Performance Keyboard-Agnostic SVG Canvas Renderer
+   VT Keymaps - High-Performance Keyboard-Agnostic SVG Canvas Renderer
    Engineered with DocumentFragment Batching & Delegated Event Dispatching
    ====================================================================== */
 

@@ -99,15 +99,15 @@ export const KEYBOARD_CATALOG = [
       {
         id: "rev1",
         version: "Rev 1",
-        name: "Rev 1 (Mello Keymap - 12 Layers)",
+        name: "Rev 1 (Keymap - 12 Layers)",
         badge: "Pending QC",
         status: "upcoming",
         date: "2026-08-20",
         zipUrl: "#",
-        zipFilename: "keychron_v1_max_ansi_encoder_mello.zip",
+        zipFilename: "keychron_v1_max_ansi_encoder.zip",
         notes: "Candidate built for STM32; hardware QC pending.",
         changelog: [
-          "Candidate Identity: Keychron V1 Max ANSI Encoder (Mello Keymap - 12 Layers).",
+          "Candidate Identity: Keychron V1 Max ANSI Encoder (Keymap - 12 Layers).",
           "Target Unit: Keychron V1 Max (STM32 DFU).",
           "Artwork & layout pending asset permissions."
         ]
@@ -130,7 +130,7 @@ export const KEYBOARD_CATALOG = [
         status: "upcoming",
         date: "2026-09-01",
         zipUrl: "#",
-        zipFilename: "kanata-mello-config.zip",
+        zipFilename: "kanata-config.zip",
         notes: "Cross-platform daemon configuration.",
         changelog: [
           "Cross-platform OS-level interceptor keymap.",

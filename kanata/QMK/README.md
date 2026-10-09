@@ -260,5 +260,5 @@ QMK will compile, detect the bootloader, and flash automatically.
 - QMK Mod-Tap: https://docs.qmk.fm/mod_tap
 - QMK Toolbox (GUI Flasher): https://github.com/qmk/qmk_toolbox/releases
 - Home Row Mods guide: https://precondition.github.io/home-row-mods
-- Keychron V1 Max QMK Customization Guide: https://github.com/voltaire-toledo/Mello.Ops.Local/blob/main/docs/keychron-v1-max-qmk.md
+- Keychron V1 Max QMK Customization Guide: ../QMK/V1-MAX/DESIGN/DESIGN.md
 

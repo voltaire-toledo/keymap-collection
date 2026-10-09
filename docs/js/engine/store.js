@@ -1,5 +1,5 @@
 /* ======================================================================
-   VT Mello Keymaps - Centralized Application State Store
+   VT Keymaps - Centralized Application State Store
    Predictable, Unidirectional Reactive State Container
    ====================================================================== */
 

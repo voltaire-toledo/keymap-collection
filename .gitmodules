@@ -5,4 +5,4 @@
 [submodule "QMK"]
 	path = QMK
 	url = https://github.com/voltaire-toledo/submod-qmk.git
-	branch = v1-max-mello
+	branch = v1-max
