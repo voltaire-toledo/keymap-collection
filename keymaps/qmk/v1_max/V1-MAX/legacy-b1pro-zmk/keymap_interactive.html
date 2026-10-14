@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keychron B1 Pro - Layer 0 Keymap</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+    :root {
+      --bg-dark: #0f172a;
+      --svg-bg: #1e293b;
+      --key-fill: #334155;
+      --key-stroke: #475569;
+      --key-hover: #3b82f6;
+      --text-main: #f8fafc;
+      --text-hold: #fbbf24;
+      --font-main: 'Inter', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #1e293b, #020617);
+      color: var(--text-main);
+      font-family: var(--font-main);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1rem;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      font-size: 2.5rem;
+      background: linear-gradient(to right, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    .keyboard-container {
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.1);
+      margin-bottom: 2rem;
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    svg {
+      display: block;
+      margin: 0 auto;
+    }
+
+    .key-group {
+      cursor: pointer;
+      /* CSS transforms on SVG elements can be tricky, we handle hover in JS or CSS carefully */
+    }
+
+    .key-rect {
+      fill: var(--key-fill);
+      stroke: var(--key-stroke);
+      stroke-width: 1.5;
+      transition: fill 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
+    }
+
+    .key-group:hover .key-rect {
+      fill: var(--key-hover);
+      stroke: #60a5fa;
+      filter: drop-shadow(0 4px 10px rgba(59, 130, 246, 0.6));
+    }
+
+    .key-text-tap {
+      fill: var(--text-main);
+      font-size: 14px;
+      font-weight: 600;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+
+    .key-text-hold {
+      fill: var(--text-hold);
+      font-size: 10px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+      transition: fill 0.2s ease;
+    }
+
+    .key-group:hover .key-text-hold {
+      fill: #ffffff;
+    }
+
+    .info-panel {
+      padding: 1.5rem 2rem;
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 600px;
+      min-height: 140px;
+      border: 1px solid #334155;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      transition: transform 0.2s ease;
+    }
+
+    .info-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 0.75rem;
+    }
+
+    .info-desc {
+      font-size: 1.1rem;
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+
+    .info-hold {
+      font-size: 1rem;
+      color: var(--text-hold);
+      margin-top: 0.75rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      background: rgba(251, 191, 36, 0.1);
+      border-radius: 8px;
+      display: inline-block;
+      align-self: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Keychron B1 Pro</h1>
+    <p class="subtitle">Interactive Layer 0 Keymap Overview</p>
+  </div>
+
+  <div class="keyboard-container" id="keyboard-container">
+    <!-- SVG will be injected here by Javascript -->
+  </div>
+
+  <div class="info-panel" id="info-panel">
+    <div class="info-title" id="info-title">Hover over a key</div>
+    <div class="info-desc" id="info-desc">Explore the Keychron B1 Pro layout layer 0. Functions and hold behaviors are derived directly from the ZMK keymap configuration.</div>
+    <div class="info-hold" id="info-hold" style="display: none;"></div>
+  </div>
+
+  <script>
+    const layout = [
+      // Row 0
+      [
+        { tap: 'ESC', hold: 'CAPS', flex: 1.5, desc: 'Escape key. Hold to toggle Caps Lock.' },
+        { tap: 'F1', flex: 1, desc: 'Function 1' },
+        { tap: 'F2', flex: 1, desc: 'Function 2' },
+        { tap: 'F3', flex: 1, desc: 'Function 3' },
+        { tap: 'F4', flex: 1, desc: 'Function 4' },
+        { tap: 'F5', flex: 1, desc: 'Function 5' },
+        { tap: 'F6', flex: 1, desc: 'Function 6' },
+        { tap: 'F7', flex: 1, desc: 'Function 7' },
+        { tap: 'F8', flex: 1, desc: 'Function 8' },
+        { tap: 'F9', flex: 1, desc: 'Function 9' },
+        { tap: 'F10', flex: 1, desc: 'Function 10' },
+        { tap: 'F11', flex: 1, desc: 'Function 11' },
+        { tap: 'F12', flex: 1, desc: 'Function 12' },
+        { tap: 'DEL', flex: 1.5, desc: 'Forward Delete' }
+      ],
+      // Row 1
+      [
+        { tap: '` ~', flex: 1, desc: 'Grave and Tilde' },
+        { tap: '1', flex: 1, desc: 'Number 1' },
+        { tap: '2', flex: 1, desc: 'Number 2' },
+        { tap: '3', flex: 1, desc: 'Number 3' },
+        { tap: '4', flex: 1, desc: 'Number 4' },
+        { tap: '5', flex: 1, desc: 'Number 5' },
+        { tap: '6', flex: 1, desc: 'Number 6' },
+        { tap: '7', flex: 1, desc: 'Number 7' },
+        { tap: '8', flex: 1, desc: 'Number 8' },
+        { tap: '9', flex: 1, desc: 'Number 9' },
+        { tap: '0', flex: 1, desc: 'Number 0' },
+        { tap: '-', flex: 1, desc: 'Minus and Underscore' },
+        { tap: '=', flex: 1, desc: 'Equal and Plus' },
+        { tap: 'BACKSPACE', flex: 2, desc: 'Backspace' }
+      ],
+      // Row 2
+      [
+        { tap: 'TAB', hold: 'HYPER', flex: 1.5, desc: 'Tab. Hold for Hyper (Ctrl+Shift+Cmd+Alt)' },
+        { tap: 'Q', flex: 1, desc: 'Letter Q' },
+        { tap: 'W', flex: 1, desc: 'Letter W' },
+        { tap: 'E', flex: 1, desc: 'Letter E' },
+        { tap: 'R', flex: 1, desc: 'Letter R' },
+        { tap: 'T', flex: 1, desc: 'Letter T' },
+        { tap: 'Y', flex: 1, desc: 'Letter Y' },
+        { tap: 'U', flex: 1, desc: 'Letter U' },
+        { tap: 'I', flex: 1, desc: 'Letter I' },
+        { tap: 'O', flex: 1, desc: 'Letter O' },
+        { tap: 'P', flex: 1, desc: 'Letter P' },
+        { tap: '[', flex: 1, desc: 'Left Bracket' },
+        { tap: ']', flex: 1, desc: 'Right Bracket' },
+        { tap: '\\', hold: 'NAV1', flex: 1.5, desc: 'Backslash. Hold to access Navigation Layer 1' }
+      ],
+      // Row 3
+      [
+        { tap: 'ESC', hold: 'FUNC', flex: 1.75, desc: 'Escape (Physical Caps Lock position). Hold to access Function Layer' },
+        { tap: 'A', hold: 'L_CTRL', flex: 1, desc: 'Letter A. Hold for Left Control' },
+        { tap: 'S', hold: 'L_GUI', flex: 1, desc: 'Letter S. Hold for Left Command (GUI)' },
+        { tap: 'D', hold: 'L_ALT', flex: 1, desc: 'Letter D. Hold for Left Option (Alt)' },
+        { tap: 'F', hold: 'L_SHIFT', flex: 1, desc: 'Letter F. Hold for Left Shift' },
+        { tap: 'G', hold: 'SYM1', flex: 1, desc: 'Letter G. Hold to access Symbols Layer 1' },
+        { tap: 'H', hold: 'SYM1', flex: 1, desc: 'Letter H. Hold to access Symbols Layer 1' },
+        { tap: 'J', hold: 'R_SHIFT', flex: 1, desc: 'Letter J. Hold for Right Shift' },
+        { tap: 'K', hold: 'R_ALT', flex: 1, desc: 'Letter K. Hold for Right Option (Alt)' },
+        { tap: 'L', hold: 'R_GUI', flex: 1, desc: 'Letter L. Hold for Right Command (GUI)' },
+        { tap: ';', hold: 'R_CTRL', flex: 1, desc: 'Semicolon. Hold for Right Control' },
+        { tap: '\'', flex: 1, desc: 'Quote' },
+        { tap: 'ENTER', flex: 2.25, desc: 'Return / Enter' }
+      ],
+      // Row 4
+      [
+        { tap: 'L_SHIFT', flex: 2.25, desc: 'Left Shift' },
+        { tap: 'Z', flex: 1, desc: 'Letter Z' },
+        { tap: 'X', flex: 1, desc: 'Letter X' },
+        { tap: 'C', flex: 1, desc: 'Letter C' },
+        { tap: 'V', flex: 1, desc: 'Letter V' },
+        { tap: 'B', flex: 1, desc: 'Letter B' },
+        { tap: 'N', flex: 1, desc: 'Letter N' },
+        { tap: 'M', flex: 1, desc: 'Letter M' },
+        { tap: ',', flex: 1, desc: 'Comma' },
+        { tap: '.', flex: 1, desc: 'Period' },
+        { tap: '/', flex: 1, desc: 'Slash' },
+        { tap: 'R_SHIFT', flex: 2.75, desc: 'Right Shift' }
+      ],
+      // Row 5
+      [
+        { tap: 'L_CTRL', flex: 1.25, desc: 'Left Control' },
+        { tap: 'L_ALT', flex: 1.25, desc: 'Left Option (Alt)' },
+        { tap: 'L_CMD', flex: 1.25, desc: 'Left Command (GUI)' },
+        { tap: 'SPACE', hold: 'NAV1', flex: 6, desc: 'Spacebar. Hold to access Navigation Layer 1' },
+        { tap: 'R_CMD', flex: 1.25, desc: 'Right Command (GUI)' },
+        { tap: 'FN (OSL)', hold: 'FUNC', flex: 1, desc: 'FN key. Tap for One-Shot Macro layer, Hold for Function layer' },
+        { tap: '←', flex: 1, desc: 'Left Arrow' },
+        { type: 'stacked', flex: 1, top: { tap: '↑', desc: 'Up Arrow' }, bottom: { tap: '↓', desc: 'Down Arrow' } },
+        { tap: '→', flex: 1, desc: 'Right Arrow' }
+      ]
+    ];
+
+    const unit = 64;
+    const gap = 8;
+    const rx = 6;
+    const width = 15 * unit - gap;
+    const height = 6 * unit - gap;
+
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+    const infoTitle = document.getElementById('info-title');
+    const infoDesc = document.getElementById('info-desc');
+    const infoHold = document.getElementById('info-hold');
+
+    function createKey(x, y, w, h, keyData) {
+      const g = document.createElementNS(svgNS, "g");
+      g.classList.add('key-group');
+
+      const rect = document.createElementNS(svgNS, "rect");
+      rect.setAttribute("x", x);
+      rect.setAttribute("y", y);
+      rect.setAttribute("width", w);
+      rect.setAttribute("height", h);
+      rect.setAttribute("rx", rx);
+      rect.classList.add('key-rect');
+      g.appendChild(rect);
+
+      // Text centering
+      const cx = x + w / 2;
+      let cyTap = y + h / 2;
+
+      if (keyData.hold) {
+        cyTap -= 6;
+        const tHold = document.createElementNS(svgNS, "text");
+        tHold.setAttribute("x", cx);
+        tHold.setAttribute("y", y + h / 2 + 8);
+        tHold.classList.add('key-text-hold');
+        tHold.textContent = keyData.hold;
+        g.appendChild(tHold);
+      }
+
+      const tTap = document.createElementNS(svgNS, "text");
+      tTap.setAttribute("x", cx);
+      tTap.setAttribute("y", cyTap);
+      tTap.classList.add('key-text-tap');
+      tTap.textContent = keyData.tap;
+      g.appendChild(tTap);
+
+      // Interaction Events
+      g.addEventListener('mouseenter', () => {
+        infoTitle.textContent = keyData.tap;
+        infoDesc.textContent = keyData.desc || '';
+        if (keyData.hold) {
+          infoHold.style.display = 'inline-block';
+          infoHold.textContent = `Hold Action: ${keyData.hold}`;
+        } else {
+          infoHold.style.display = 'none';
+        }
+      });
+
+      return g;
+    }
+
+    let y = 0;
+    layout.forEach(row => {
+      let x = 0;
+      row.forEach(key => {
+        const w = (key.flex * unit) - gap;
+        const h = unit - gap;
+
+        if (key.type === 'stacked') {
+          const topH = (h - gap) / 2;
+          const bottomY = y + topH + gap;
+          svg.appendChild(createKey(x, y, w, topH, key.top));
+          svg.appendChild(createKey(x, bottomY, w, topH, key.bottom));
+        } else {
+          svg.appendChild(createKey(x, y, w, h, key));
+        }
+        x += key.flex * unit;
+      });
+      y += unit;
+    });
+
+    document.getElementById('keyboard-container').appendChild(svg);
+
+    // Add default mouseleave behavior on the SVG container to reset the panel
+    svg.addEventListener('mouseleave', () => {
+        infoTitle.textContent = 'Hover over a key';
+        infoDesc.textContent = 'Explore the Keychron B1 Pro layout layer 0. Functions and hold behaviors are derived directly from the ZMK keymap configuration.';
+        infoHold.style.display = 'none';
+    });
+
+  </script>
+</body>
+</html>

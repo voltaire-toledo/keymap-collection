@@ -1,0 +1,53 @@
+name: Build QMK Keychron V1 Max Firmware
+
+on:
+  push:
+    paths:
+      - 'keymaps/qmk/**'
+      - '.github/workflows/build-qmk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Keymap Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout Keychron QMK Base (Ephemeral)
+        uses: actions/checkout@v4
+        with:
+          repository: Keychron/qmk_firmware
+          ref: 2025q3
+          path: qmk_firmware
+          submodules: false
+
+      - name: Checkout Required ChibiOS Submodules
+        run: |
+          cd qmk_firmware
+          git submodule update --init lib/chibios lib/chibios-contrib
+
+      - name: Apply Custom QMK Overlay
+        run: |
+          echo "Applying custom keymap and hardware overrides..."
+          cp -r keymaps/qmk/v1_max/qmk_overlay/* qmk_firmware/
+
+      - name: Compile V1 Max Firmware (QMK CLI Container)
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/qmk_firmware:/qmk_firmware" \
+            -w /qmk_firmware \
+            qmkfm/qmk_cli:latest \
+            qmk compile -kb keychron/v1_max/ansi_encoder -km default
+
+      - name: Find and Stage Firmware Binary
+        run: |
+          mkdir -p output
+          find qmk_firmware -maxdepth 2 -name "*.bin" -exec cp {} output/ \;
+          ls -lah output/
+
+      - name: Upload Firmware Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keychron_v1_max_ansi_encoder_firmware
+          path: output/*.bin

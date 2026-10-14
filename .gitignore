@@ -1,0 +1,12 @@
+# Build and staging artifacts
+.zmk-docker-stage/
+build/
+output/
+.venv/
+__pycache__/
+*.pyc
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,742 @@
+/*  Keychron B1 Pro v0.25.8 Candidate (Build 8).
+    Baseline: v0.25-unified (recalled)
+   
+    8-Layer Architecture (4 Mac / 4 Win):
+    - Mac: Base (0), Func (1), Symbol (2), Nav (3)
+    - Win: Base (4), Func (5), Symbol (6), Nav (7)
+    - Eliminated UAT and MCRO layers (formerly 4, 5, 10, 11).
+   
+    BASE Layers (0 & 4):
+    - Fn key next to R_CMD / R_ALT: Tap-dance (1-tap/hold TG/MO FUNC, 2-tap TOG SYM1, 3-tap TOG NAV1).
+    - Homerow Mods (lhm/rhm): Retro-tap enabled, row-aligned positional triggers, relaxed timings (+75ms).
+   
+    FUNC Layers (1 & 5):
+    - Numrow 6 = NumLock (&kp KP_NUM, double-flash white indication).
+    - Numrow 7-0 = *, /, +, -, Q-T = &trans, Y = DEL, P = BSPC.
+    - Pos 59 (V on Win Func): GPU driver reset (&uc LG(LC(LS(B))) -> Win + Ctrl + Shift + B).
+    - Pos 60 (B on Mac/Win Func): Battery level indicator (&out OUT_BAT).
+    - Pos 0 (Esc on Func): Tap returns to Base (Mac 0 / Win 4); Hold 3s toggles F-row exchange (&change).
+   
+    SYMBOL Layers (2 & 6):
+    - Fn row = F1-F12, Num row = F13-F24.
+    - Left-hand ASDF = opening <, [, {, ( with HRM holds.
+    - Right-hand JKLM = closing ), }, ], > (1-tap) and auto-closing macros (_), {_}, [_] (2-tap).
+    - Comma / Period = < (1-tap) / <_> (2-tap) and > (1-tap) / </_> (2-tap).
+   
+    NAVIGATION Layers (3 & 7):
+    - Pos 53 (Space): Set to &trans for seamless transparent fallback and space repetition.
+    - Slash (/): Set to &trans transparent pass-through.
+   
+    LED Subsystem (Custom CAF Engine):
+    - Layer Beacon Pulsing: 1.5s ON / 1.5s OFF beacon sequence on binary GPIO indicator:
+      - Func: White (#FFFFFF)
+      - Symbol: Green (#00FF00)
+      - Navigation: Purple (#B400FF)
+      - Macro: Orange (#FF6400)
+    - Dynamic Devicetree CAPS node lookup and power-on finish status bugfixes.
+    - Lock / Action Indications:
+      - NumLock: Double White flash (250ms on / 200ms off / 250ms on).
+      - Win Lock (OUT_FN_WIN): Double Cyan flash (#00FFFF, 350ms on / 200ms off / 350ms on).
+      - Battery Check (OUT_BAT): Solid Green (>=70%), Blue (30-69%), Red (<30%).
+   
+    Hardware Recovery & Direct Controls (Positions 77-81):
+    - Fn + - (hold 3s): Enter NRF52 bootloader (&en_bootloader).
+    - Fn + J + Z (hold 3s): Factory reset (&recover).
+    - Direct Controls (77-81) preserved intact across all layers: BT_SEL 0..2, OUT_BLE, OUT_USB.
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/outputs.h>
+
+#define LYR_M_BASE        0
+#define LYR_M_FUNC        1
+#define LYR_M_SYM1        2
+#define LYR_M_NAV1        3
+#define LYR_W_BASE        4
+#define LYR_W_FUNC        5
+#define LYR_W_SYM1        6
+#define LYR_W_NAV1        7
+
+#define MOUSE_UP          0x00CD
+#define MOUSE_DOWN        0x00CE
+#define MOUSE_LEFT        0x00CF
+#define MOUSE_RIGHT       0x00D0
+#define MOUSE_BUTTON_1    0x00D1
+#define MOUSE_BUTTON_2    0x00D2
+#define MOUSE_WHEEL_UP    0x00D9
+#define MOUSE_WHEEL_DOWN  0x00DA
+#define MOUSE_WHEEL_LEFT  0x00DB
+#define MOUSE_WHEEL_RIGHT 0x00DC
+#define MOUSE_SPEED_1     0x00DD
+#define MOUSE_SPEED_2     0x00DE
+#define MOUSE_SPEED_3     0x00DF
+
+/ {
+    ZMK_MACRO(recover, bindings = <&out OUT_RECOVER>;)
+    ZMK_MACRO(change, bindings = <&out OUT_FN>;)
+    ZMK_MACRO(fn_win, bindings = <&out OUT_FN_WIN>;)
+    ZMK_MACRO(en_bootloader, bindings = <&bootloader>;)
+    ZMK_MACRO(mcro_parens, bindings = <&kp LPAR &kp RPAR &kp LEFT>;)
+    ZMK_MACRO(mcro_braces, bindings = <&kp LBRC &kp RBRC &kp LEFT>;)
+    ZMK_MACRO(mcro_brackets, bindings = <&kp LBKT &kp RBKT &kp LEFT>;)
+    ZMK_MACRO(mcro_angle_brackets, bindings = <&kp LT &kp GT &kp LEFT>;)
+    ZMK_MACRO(mcro_angle_brackets_slash, bindings = <&kp LT &kp FSLH &kp GT &kp LEFT>;)
+
+    /*
+     * Factory Reset Hold-Tap (3-second guard):
+     * Invokes &recover (&out OUT_RECOVER -> zmk_factory_recover()).
+     * Erases stored Bluetooth bonds from NVS, deletes dynamic VIA/EEPROM overrides,
+     * resets internal runtime flags (e.g. fn_exchange), flashes recovery LED,
+     * and restarts the MCU back into the compiled v0.25 candidate baseline.
+     */
+    long_press_recover: long_press_recover {
+        compatible = "zmk,behavior-hold-tap";
+        label = "LP_RECOVER";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <3000>;
+        bindings = <&recover>, <&none>;
+    };
+
+    /*
+     * Windows Key Lock Hold-Tap (3-second guard):
+     * Invokes &fn_win (&out OUT_FN_WIN -> toggles fn_win_lock flag).
+     * When active, hid.c filters out LGUI/RGUI modifier signals globally across
+     * all Windows layers (Base 4, Sym 6, Nav 7) to prevent accidental
+     * Win+L, Win+U, or gaming interruptions.
+     */
+    long_press_fn_win: long_press_fn_win {
+        compatible = "zmk,behavior-hold-tap";
+        label = "LP_FN_WIN";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <3000>;
+        bindings = <&fn_win>, <&none>;
+    };
+
+    /*
+     * Fn + Esc dual-role bindings for Function layers (pos 0):
+     * - Tap: Instantly exits Function layer back to Base (Layer 0 Mac / Layer 4 Win).
+     * - Hold (3s): Toggles Function/Media row exchange (&change / OUT_FN).
+     */
+    fn_esc_change_mac: fn_esc_change_mac {
+        compatible = "zmk,behavior-hold-tap";
+        label = "FN_ESC_CHANGE_MAC";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <3000>;
+        bindings = <&change>, <&to>;
+    };
+
+    fn_esc_change_win: fn_esc_change_win {
+        compatible = "zmk,behavior-hold-tap";
+        label = "FN_ESC_CHANGE_WIN";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <3000>;
+        bindings = <&change>, <&to>;
+    };
+
+    long_press_bootloader: long_press_bootloader {
+        compatible = "zmk,behavior-hold-tap";
+        label = "LP_BOOTLOADER";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <3000>;  // delay amount in ms
+        bindings = <&en_bootloader>, <&none>;
+    };
+
+    esc_caps: escape_caps_lock {
+        compatible = "zmk,behavior-hold-tap";
+        label = "ESC_CAPS_LOCK";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <600>;
+        // Use an ordinary press/release for the hold. &kt keeps CLCK down
+        // across physical releases, which requires a second hold to finish.
+        bindings = <&kp>, <&kp>;
+    };
+
+    ht_fn_mac: ht_fn_mac {
+        compatible = "zmk,behavior-hold-tap";
+        label = "HT_FN_MAC";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <200>;
+        bindings = <&mo>, <&tog>;
+    };
+
+    td_fn_mac: td_fn_mac {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_FN_MAC";
+        #binding-cells = <1>;
+        tapping-term-ms = <250>;
+        bindings = <&ht_fn_mac LYR_M_FUNC LYR_M_FUNC>, <&tog LYR_M_SYM1>, <&tog LYR_M_NAV1>;
+    };
+
+    ht_fn_win: ht_fn_win {
+        compatible = "zmk,behavior-hold-tap";
+        label = "HT_FN_WIN";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <200>;
+        bindings = <&mo>, <&tog>;
+    };
+
+    td_fn_win: td_fn_win {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_FN_WIN";
+        #binding-cells = <1>;
+        tapping-term-ms = <250>;
+        bindings = <&ht_fn_win LYR_W_FUNC LYR_W_FUNC>, <&tog LYR_W_SYM1>, <&tog LYR_W_NAV1>;
+    };
+
+    ZMK_MACRO(bt_pair0, bindings = <&bt BT_PAIR 0>;)
+    ZMK_MACRO(bt_pair1, bindings = <&bt BT_PAIR 1>;)
+    ZMK_MACRO(bt_pair2, bindings = <&bt BT_PAIR 2>;)
+    ZMK_MACRO(bt_recon_0, bindings = <&bt BT_SEL 0>;)
+    ZMK_MACRO(bt_recon_1, bindings = <&bt BT_SEL 1>;)
+    ZMK_MACRO(bt_recon_2, bindings = <&bt BT_SEL 2>;)
+
+    ht_bt_0: ht_bt_0 {
+        compatible = "zmk,behavior-hold-tap";
+        label = "HT_BT_0";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <4000>;
+        bindings = <&bt_pair0>, <&bt_recon_0>;
+    };
+
+    ht_bt_1: ht_bt_1 {
+        compatible = "zmk,behavior-hold-tap";
+        label = "HT_BT_1";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <4000>;
+        bindings = <&bt_pair1>, <&bt_recon_1>;
+    };
+
+    ht_bt_2: ht_bt_2 {
+        compatible = "zmk,behavior-hold-tap";
+        label = "HT_BT_2";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <4000>;
+        bindings = <&bt_pair2>, <&bt_recon_2>;
+    };
+
+    td_sym_parens: td_sym_parens {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_SYM_PARENS";
+        #binding-cells = <1>;
+        tapping-term-ms = <350>;
+        bindings = <&kp RPAR>, <&mcro_parens>;
+    };
+
+    td_sym_braces: td_sym_braces {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_SYM_BRACES";
+        #binding-cells = <1>;
+        tapping-term-ms = <350>;
+        bindings = <&kp RBRC>, <&mcro_braces>;
+    };
+
+    td_sym_brackets: td_sym_brackets {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_SYM_BRACKETS";
+        #binding-cells = <1>;
+        tapping-term-ms = <350>;
+        bindings = <&kp RBKT>, <&mcro_brackets>;
+    };
+
+    td_sym_angle_brackets_comma: td_sym_angle_brackets_comma {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_SYM_ANGLE_BRACKETS_COMMA";
+        #binding-cells = <1>;
+        tapping-term-ms = <350>;
+        bindings = <&kp LT>, <&mcro_angle_brackets>;
+    };
+
+    td_sym_angle_brackets_period: td_sym_angle_brackets_period {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_SYM_ANGLE_BRACKETS_PERIOD";
+        #binding-cells = <1>;
+        tapping-term-ms = <350>;
+        bindings = <&kp GT>, <&mcro_angle_brackets_slash>;
+    };
+
+    td_nav_c_mac: td_nav_c_mac {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_NAV_C_MAC";
+        #binding-cells = <1>;
+        tapping-term-ms = <200>;
+        bindings = <&uc LG(C)>, <&uc LG(LS(C))>, <&uc LC(LS(C))>;
+    };
+
+    td_nav_v_mac: td_nav_v_mac {
+        compatible = "zmk,behavior-tap-dance";
+        label = "TD_NAV_V_MAC";
+        #binding-cells = <1>;
+        tapping-term-ms = <200>;
+        bindings = <&uc LG(V)>, <&uc LC(V)>, <&uc LC(LS(V))>;
+    };
+
+    lhm: left_homerow_mods {
+        compatible = "zmk,behavior-hold-tap";
+        label = "LEFT_HOMEROW_MODS";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <275>;
+        quick-tap-ms = <250>;
+        require-prior-idle-ms = <225>;
+        retro-tap;
+        hold-trigger-on-release;
+        hold-trigger-key-positions = <
+            7 8 9 10 11 12 13
+            21 22 23 24 25 26 27
+            35 36 37 38 39 40 41
+            48 49 50 51 52 53 54
+            61 62 63 64 65 66
+            71 72 73 74 75 76
+        >;
+        bindings = <&kp>, <&kp>;
+    };
+
+    rhm: right_homerow_mods {
+        compatible = "zmk,behavior-hold-tap";
+        label = "RIGHT_HOMEROW_MODS";
+        #binding-cells = <2>;
+        flavor = "tap-preferred";
+        tapping-term-ms = <275>;
+        quick-tap-ms = <250>;
+        require-prior-idle-ms = <225>;
+        retro-tap;
+        hold-trigger-on-release;
+        hold-trigger-key-positions = <
+            0 1 2 3 4 5 6
+            14 15 16 17 18 19 20
+            28 29 30 31 32 33 34
+            42 43 44 45 46 47
+            55 56 57 58 59 60
+            67 68 69 70
+        >;
+        bindings = <&kp>, <&kp>;
+    };
+
+
+    uc: user_custom {
+        compatible = "zmk,behavior-key-press";
+        label = "USER_CUSTOM";
+        #binding-cells = <1>;
+    };
+
+    combos {
+        compatible = "zmk,combos";
+
+        /*
+         * Factory Reset Chord (Fn + J + Z held for 3 seconds):
+         * - Scoped strictly to Function layers (<LYR_M_FUNC LYR_W_FUNC>), leaving
+         *   individual J and Z keys completely unrestricted across Base and other layers.
+         * - Simultaneous chord of J (pos 49) + Z (pos 56) with 3000ms hold guard.
+         * - Executes zmk_factory_recover(): wipes all paired Bluetooth bonds in NVS,
+         *   erases dynamic VIA/EEPROM customizations, resets internal flags, flashes
+         *   recovery LED, and restarts the keyboard into the compiled v0.25 baseline.
+         */
+        combo_jz_reset {
+            timeout-ms = <1000>;
+            layers = <LYR_M_FUNC LYR_W_FUNC>;
+            key-positions = <49 56>; /* J (49), Z (56) */
+            bindings = <&long_press_recover 0 0>;
+        };
+
+        combo_win_lock {
+        /*
+         * Windows Key Lock (Fn + Win held for 3 seconds):
+         * - Toggle trigger scoped to Windows Function layer (<LYR_W_FUNC>) at pos 68.
+         * - Once toggled ON, the lock operates globally across all Windows layers
+         *   (Base 4, Sym 6, Nav 7) by having hid.c suppress LGUI/RGUI signals,
+         *   preventing accidental Win+L (Lock Screen), Win+U (Accessibility), or gaming interruptions.
+         * - Visual confirmation: triggers a unique Magenta/Purple double-flash LED indication.
+         * - Toggling again turns the lock off.
+         */
+            timeout-ms = <1000>;
+            layers = <LYR_W_FUNC>;
+            key-positions = <68>;    /* Win/Alt (68) */
+            bindings = <&long_press_fn_win 0 0>;
+        };
+    };
+
+    keymap {
+
+    /*
+                              ..'
+                      ,xNMM.
+                    .OMMMMo
+                    lMM"
+          .;loddo:.  .olloddol;.
+        cKMMMMMMMMMMNWMMMMMMMMMM0:
+      .KMMMMMMMMMMMMMMMMMMMMMMMWd.
+      XMMMMMMMMMMMMMMMMMMMMMMMX.
+      ;MMMMMMMMMMMMMMMMMMMMMMMM:
+      :MMMMMMMMMMMMMMMMMMMMMMMM:
+      .MMMMMMMMMMMMMMMMMMMMMMMMX.
+      kMMMMMMMMMMMMMMMMMMMMMMMMWd.
+      'XMMMMMMMMMMMMMMMMMMMMMMMMMMk
+        'XMMMMMMMMMMMMMMMMMMMMMMMMK.
+          kMMMMMMMMMMMMMMMMMMMMMMd
+          ;KMMMMMMMWXXWMMMMMMMk.
+            "cooc*"    "*coo'"
+                                      */
+    compatible = "zmk,keymap";
+    /* LAYER 0: LYR_M_BASE
+    ┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+    ┃           ┃         ┃         ┃ MISSION ┃   MAC   ┃  SEARCH ┃         ┃ PREVIOUS┃ PLAY/   ┃   NEXT  ┃   Vol   ┃         ┃         ┃         ┃
+    ┃TAP: ESC   ┃ Bright- ┃ Bright+ ┃ CONTROL ┃ LAUNCH  ┃ SEARCH  ┃  LOCK   ┃  PREV   ┃  PAUSE  ┃  NEXT   ┃   Mute  ┃   Vol-  ┃  Vol+   ┃   DEL   ┃
+    ┃HOLD: CAPS ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┣━━━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━━━━━┫
+    ┃   ~   ┃    !    ┃    @    ┃    #    ┃    $    ┃    %    ┃    ^    ┃    *    ┃    -    ┃    (    ┃    )    ┃    _    ┃    +    ┃             ┃
+    ┃   `   ┃    1    ┃    2    ┃    3    ┃    4    ┃    5    ┃    6    ┃    7    ┃    8    ┃    9    ┃    0    ┃    -    ┃    =    ┃    BKSP     ┃
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┣━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━━━━━┫
+    ┃TAP: TAB  ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃    {    ┃    }    ┃          ┃
+    ┃HOLD: HYPR┃    Q    ┃    W    ┃    E    ┃    R    ┃    T    ┃    Y    ┃    U    ┃    I    ┃    O    ┃    P    ┃    [    ┃    ]    ┃TAP: \    ┃ 
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃HOLD:MO(3)┃
+    ┣━━━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻━━━━━━━━━━┫
+    ┃TAP=ESC    ┃ TAP=A   ┃ TAP=S   ┃ TAP=D   ┃ TAP=F   ┃ TAP=G   ┃ TAP=H   ┃ TAP=J   ┃ TAP=K   ┃ TAP=L   ┃ TAP=;/: ┃    "    ┃                   ┃
+    ┃HOLD:MO(1) ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃    '    ┃      RETURN       ┃
+    ┃           ┃  L_CTRL ┃  L_GUI  ┃  L_ALT  ┃ L_SHIFT ┃   MO(2) ┃   MO(2) ┃ R_SHIFT ┃  R_ALT  ┃  R_GUI  ┃  R_CTRL ┃         ┃                   ┃
+    ┣━━━━━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━━━━━━━━━━━━━━━━━━┫
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃    <    ┃    >    ┃    ?    ┃                          ┃
+    ┃   L_SHIFT    ┃    Z    ┃    X    ┃    C    ┃    V    ┃    B    ┃   N     ┃    M    ┃    ,    ┃    .    ┃    /    ┃        R_SHIFT           ┃
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┣━━━━━━━━━━━┳━━┻━━━━━━━┳━┻━━━━━━━━━╋━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━╋━━━━━━━━━┻━━━━┳━━━━┻━━━━━┳━┳━┻━━━━━━┳━━━━━━━━━┳━━━━━━━━━┫
+    ┃           ┃          ┃           ┃                                                 ┃              ┃1T/H: FUNC┃ ┃        ┃    ↑    ┃         ┃
+    ┃  L_CTRL   ┃  L_ALT   ┃   L_CMD   ┃             * &lt LYR_M_NAV1 SPACE *            ┃    R_CMD     ┃2T: SYM1  ┃ ┃    ←   ┣━━━━━━━━━┫   →     ┃
+    ┃           ┃          ┃           ┃                                                 ┃              ┃3T: NAV1  ┃ ┃        ┃    ↓    ┃         ┃
+    ┗━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━┛ ┗━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┛
+    */
+
+    layer_m_base {
+      bindings = <
+        //ESC                     //f1                   //f2                  //f3                               //f4                 //f5              //f6              //f7            //f8              //f9        //f10            //f11              //f12            //DEL
+        &esc_caps CLCK ESC        &kp C_BRIGHTNESS_DEC   &kp C_BRIGHTNESS_INC  &kp C_AC_DESKTOP_SHOW_ALL_WINDOWS  &kp C_AC_MAC_LAUNCH  &kp C_AC_SEARCH   &kp C_AL_LOCK     &kp C_PREVIOUS  &kp C_PLAY_PAUSE  &kp C_NEXT  &kp C_MUTE       &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &kp DEL
+        &kp GRAVE                 &kp N1                 &kp N2                &kp N3                             &kp N4               &kp N5            &kp N6            &kp N7          &kp N8            &kp N9      &kp N0           &kp MINUS          &kp EQUAL        &kp BSPC
+        &mt LC(LS(LG(LALT))) TAB  &kp Q                  &kp W                 &kp E                              &kp R                &kp T             &kp Y             &kp U           &kp I             &kp O       &kp P            &kp LBKT           &kp RBKT         &lt LYR_M_NAV1 BSLH
+        &lt LYR_M_FUNC ESC        &lhm LCTRL A           &lhm LGUI S           &lhm LALT D                        &lhm LSHFT F         &lt LYR_M_SYM1 G  &lt LYR_M_SYM1 H  &rhm RSHFT J    &rhm RALT K       &rhm RGUI L &rhm RCTRL SEMI  &kp SQT            &kp RET
+        &kp LSHFT                 &kp Z                  &kp X                 &kp C                              &kp V                &kp B             &kp N             &kp M           &kp COMMA         &kp DOT     &kp FSLH             &kp RSHFT
+        &kp LCTRL                 &uc LALT               &uc LCMD              &lt LYR_M_NAV1 SPACE                                    &uc RCMD          &td_fn_mac 0                      &kp LEFT          &kp UP      &kp DOWN         &kp RIGHT
+        &mo LYR_W_BASE            &out OUT_BLE           &out OUT_24G          &out OUT_CHG                       &out OUT_CHGD
+      >;
+    };
+
+    /* LAYER 1: LYR_M_FUNC
+    ┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┃TO(LYR_M_  ┃   F1    ┃   F2    ┃   F3    ┃   F4    ┃   F5    ┃   F6    ┃    F7   ┃    F8   ┃    F9   ┃   F10   ┃   F11   ┃   F12   ┃  DEL    ┃
+    ┃   BASE)   ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┣━━━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━━━━━┫
+    ┃       ┃TAP:BT1  ┃TAP:BT2  ┃TAP:BT3  ┃         ┃         ┃   Num-  ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃         ┃         ┃             ┃
+    ┃   ▼   ┃HLD:PAIR1┃HLD:PAIR2┃HLD:PAIR3┃    ▼    ┃    ▼    ┃   Lock  ┃    ×    ┃    ÷    ┃    +    ┃    −    ┃   Boot  ┃  Search ┃     ▼       ┃
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┣━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━━━━━┫
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃         ┃         ┃         ┃ Screen   ┃
+    ┃     ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃ DELETE  ┃    7    ┃    8    ┃    9    ┃  BkSp   ┃         ┃    ▼    ┃ Cap-Mac  ┃
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+    ┣━━━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻━━━━━━━━━━┫
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃         ┃                   ┃
+    ┃   __▼__   ┃  L_CTRL ┃  L_GUI  ┃  L_ALT  ┃ L_SHIFT ┃     ▼   ┃   TAB   ┃    4    ┃    5    ┃    6    ┃  ENTER  ┃         ┃         ▼         ┃
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                   ┃
+    ┣━━━━━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━━━━━━━━━━━━━━━━━━┫
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃                          ┃
+    ┃       ▼      ┃     ▼   ┃     ▼   ┃     ▼   ┃    ▼    ┃ Battery ┃    ,    ┃    1    ┃    2    ┃    3    ┃    .    ┃        Emoji-m           ┃
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┣━━━━━━━━━━━┳━━┻━━━━━━━┳━┻━━━━━━━━━╋━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━╋━━━━━━━━━┻━━━━┳━━━━┻━━━━━┳━┳━┻━━━━━━┳━━━━━━━━━┳━━━━━━━━━┫
+    ┃           ┃          ┃           ┃                     NUMPAD                      ┃              ┃          ┃ ┃        ┃  PgUp   ┃         ┃
+    ┃     ▼     ┃     ▼    ┃     ▼     ┃                        0                        ┃    R_CTRL    ┃     ▼    ┃ ┃  Home  ┣━━━━━━━━━┫   End   ┃
+    ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃  PgDn   ┃         ┃
+    ┗━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━┛ ┗━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┛
+    */
+    layer_m_func {
+      bindings = <
+        //ESC                   //F1        //F2        //F3        //f4          //f5    //f6        //f7             //f8           //f9         //f10         //f11                       //f12             //DEL
+        &fn_esc_change_mac 0 0  &kp F1      &kp F2      &kp F3      &kp F4        &kp F5  &kp F6      &kp F7           &kp F8         &kp F9       &kp F10       &kp F11                     &kp F12           &kp DEL
+        &trans          &ht_bt_0 0 0  &ht_bt_1 0 0  &ht_bt_2 0 0  &trans        &trans  &kp KP_NUM  &kp KP_MULTIPLY  &kp KP_DIVIDE  &kp KP_PLUS  &kp KP_MINUS  &long_press_bootloader 0 0  &kp C_AC_SEARCH   &trans
+        &trans          &trans      &trans      &trans      &trans        &trans  &kp DEL     &kp KP_N7        &kp KP_N8      &kp KP_N9    &kp BSPC      &trans                      &trans            &uc LG(LS(N4))
+        &trans          &kp LCTRL   &kp LGUI    &kp LALT    &kp LSHFT     &trans  &kp TAB     &kp KP_N4        &kp KP_N5      &kp KP_N6    &kp RET       &trans                                        &trans
+        &trans          &trans      &trans      &trans      &trans        &out OUT_BAT  &kp COMMA   &kp KP_N1   &kp KP_N2      &kp KP_N3    &kp KP_DOT    &uc LC(LG(SPACE))
+        &trans          &trans      &trans                  &kp KP_N0             &kp RCTRL   &trans           &kp HOME       &kp PG_UP    &kp PG_DN     &kp END
+        &none           &none       &none       &none       &none
+        >;
+      };
+
+      /* LAYER 2: LYR_M_SYM1
+      ┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+      ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+      ┃TO(LYR_M_  ┃   F1    ┃   F2    ┃   F3    ┃   F4    ┃   F5    ┃   F6    ┃    F7   ┃    F8   ┃    F9   ┃   F10   ┃   F11   ┃   F12   ┃   ▼     ┃
+      ┃   BASE)   ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+      ┣━━━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━━━━━┫
+      ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+      ┃   ▼   ┃   F13   ┃   F14   ┃   F15   ┃   F16   ┃   F17   ┃   F18   ┃   F19   ┃   F20   ┃   F21   ┃   F22   ┃   F23   ┃   F24   ┃     ▼       ┃
+      ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+      ┣━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━━━━━┫
+      ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+      ┃    [`]   ┃   [!]   ┃   [@]   ┃   [#]   ┃   [$]   ┃   [%]   ┃   [^]   ┃   [&]   ┃   [*]   ┃   [-]   ┃   [=]   ┃    ▼    ┃    ▼    ┃   [|]    ┃
+      ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+      ┣━━━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻━━━━━━━━━━┫
+      ┃           ┃1T: <    ┃1T: [    ┃1T: {    ┃1T: (    ┃    *    ┃   *     ┃ 1T: )   ┃ 1T: }   ┃ 1T: ]   ┃         ┃         ┃                   ┃
+      ┃    [~]    ┃H: L_CTRL┃H: L_CMD ┃H: L_ALT ┃H: L_SHFT┃  SYMBOL ┃ SYMBOL  ┃ 2T: (_) ┃ 2T: {_} ┃ 2T: [_] ┃   [:]   ┃   ["]   ┃       [=]         ┃
+      ┃           ┃         ┃         ┃         ┃         ┃    *    ┃   *     ┃         ┃         ┃         ┃         ┃         ┃                   ┃
+      ┣━━━━━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━━━━━━━━━━━━━━━━━━┫
+      ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃ 1T: <   ┃ 1T: >   ┃         ┃                          ┃
+      ┃       ▼      ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃ 2T: <_> ┃ 2T: </_>┃   [?]   ┃         Emoji-m          ┃
+      ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+      ┣━━━━━━━━━━━┳━━┻━━━━━━━┳━┻━━━━━━━━━╋━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━╋━━━━━━━━━┻━━━━┳━━━━┻━━━━━┳━┳━┻━━━━━━┳━━━━━━━━━┳━━━━━━━━━┫
+      ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃    ↑    ┃         ┃
+      ┃     ▼     ┃    ▼     ┃     ▼     ┃                         ▼                       ┃       ▼      ┃     ▼    ┃ ┃    ←   ┣━━━━━━━━━┫   →     ┃
+      ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃    ↓    ┃         ┃
+      ┗━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━┛ ┗━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┛
+      */
+      layer_m_sym1 {
+        bindings = <
+        //ESC           //f1       //f2      //f3      //f4       //f5       //f6       //f7                      //f8              //f9              //f10              //f11             //f12     //DEL
+        &to LYR_M_BASE  &kp F1     &kp F2    &kp F3    &kp F4     &kp F5     &kp F6     &kp F7                    &kp F8            &kp F9            &kp F10            &kp F11           &kp F12   &kp DEL
+        &trans          &kp F13    &kp F14   &kp F15   &kp F16    &kp F17    &kp F18    &kp F19                   &kp F20           &kp F21           &kp F22            &kp F23           &kp F24   &trans
+        &kp GRAVE       &kp EXCL   &kp AT    &kp HASH  &kp DLLR   &kp PRCNT  &kp CARET  &kp AMPS                  &kp ASTERISK      &kp MINUS         &kp EQUAL          &trans            &trans    &kp PIPE
+        &kp TILDE       &lhm LCTRL LT &lhm   LGUI LBKT &lhm LALT  LBRC &lhm  LSHFT LPAR &none &none               &td_sym_parens 0  &td_sym_braces 0  &td_sym_brackets 0 &kp COLON            &kp DQT    &kp EQUAL
+        &trans          &trans     &trans    &trans    &trans     &trans     &trans     &trans  &td_sym_angle_brackets_comma 0    &td_sym_angle_brackets_period 0            &kp QMARK          &uc LC(LG(SPACE)) //SHIFTx2
+        &trans          &trans     &trans    &trans    &trans     &trans     &kp LEFT   &kp UP            &kp DOWN          &kp RIGHT
+        &none           &none      &none     &none     &none
+      >;
+    };
+
+    /* LAYER 3: LYR_M_NAV1
+    ┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┃   TO(0)   ┃   F13   ┃   F14   ┃   F15   ┃   F16   ┃   F17   ┃   F18   ┃   F19   ┃   F20   ┃   F21   ┃   F22   ┃   F23   ┃   F24   ┃   ▼     ┃
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┣━━━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━━━━━┫
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┃   ▼   ┃    ▼    ┃    ▼    ┃    #    ┃    ▼    ┃   MW ↓  ┃    ▼    ┃    ▼    ┃  SPACE  ┃    ▼    ┃  MBtn1  ┃ Mouse ↑ ┃  MBtn2  ┃     ▼       ┃
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┣━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━━━━━┫
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+    ┃     ▼    ┃  LG(Q)  ┃  LG(W)  ┃  MW ←   ┃  MW ↑   ┃  MW →   ┃  LG(Y)  ┃   Del   ┃    ↑    ┃  Bksp   ┃ Mouse ← ┃ Mouse ↓ ┃ Mouse → ┃    ▼     ┃
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+    ┣━━━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻━━━━━━━━━━┫
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                   ┃
+    ┃      ▼    ┃  L_CTRL ┃  L_GUI  ┃  L_ALT  ┃ L_SHIFT ┃  SPACE  ┃   Home  ┃    ←    ┃    ↓    ┃    →    ┃   End   ┃    ▼    ┃        ▼          ┃
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                   ┃
+    ┣━━━━━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━━━━━━━━━━━━━━━━━━┫
+    ┃              ┃         ┃         ┃1T:LG(C) ┃1T:LG(V) ┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┃       ▼      ┃  LG(Z)  ┃  LG(X)  ┃2T:LGS(C)┃2T:LC(V) ┃  LG(B)  ┃  PgUp   ┃  PdDn   ┃LGS(TAB) ┃ LG(TAB) ┃ LGS(/)  ┃            ▼             ┃
+    ┃              ┃         ┃         ┃3T:LCS(C)┃3T:LCS(V)┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┣━━━━━━━━━━━┳━━┻━━━━━━━┳━┻━━━━━━━━━╋━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━╋━━━━━━━━━┻━━━━┳━━━━┻━━━━━┳━┳━┻━━━━━━┳━━━━━━━━━┳━━━━━━━━━┫
+    ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃    ↑    ┃         ┃
+    ┃   MSPD1   ┃   MSPD2  ┃   MSPD3   ┃                    * IN USE *                   ┃       ▼      ┃     ▼    ┃ ┃    ←   ┣━━━━━━━━━┫   →     ┃
+    ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃    ↓    ┃         ┃
+    ┗━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━┛ ┗━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┛
+    */
+    layer_m_nav1 {
+      bindings = <
+        //ESC              //f1               //f2              //f3                  //f4                //f5                   //f6       //f7       //f8             //f9         //f10               //f11           //f12               //DEL
+        &to LYR_M_BASE     &kp F13            &kp F14           &kp F15               &kp F16             &kp F17                &kp F18    &kp F19    &kp F20          &kp F21      &kp F22             &kp F23         &kp F24             &trans
+        &trans             &trans              &trans           &kp HASH              &trans              &uc MOUSE_WHEEL_DOWN   &trans      &trans    &kp SPACE        &trans       &uc MOUSE_BUTTON_1  &uc MOUSE_UP    &uc MOUSE_BUTTON_2  &trans
+        &trans             &uc LG(Q)          &uc LG(W)         &uc MOUSE_WHEEL_LEFT  &uc MOUSE_WHEEL_UP  &uc MOUSE_WHEEL_RIGHT  &uc LG(Y)  &kp DEL    &kp UP           &kp BSPC     &uc MOUSE_LEFT      &uc MOUSE_DOWN  &uc MOUSE_RIGHT     &trans
+        &trans             &kp LCTRL          &kp LGUI          &kp LALT              &kp LSHFT           &kp SPACE              &kp HOME   &kp LEFT   &kp DOWN         &kp RIGHT    &kp END             &trans           &trans
+        &trans             &uc LG(Z)          &uc LG(X)         &td_nav_c_mac 0       &td_nav_v_mac 0     &uc LG(B)              &kp PG_UP  &kp PG_DN  &uc LC(LS(TAB))  &uc LC(TAB)  &trans              &trans
+        &uc MOUSE_SPEED_1  &uc MOUSE_SPEED_2  &uc MOUSE_SPEED_3                       &trans              &trans                 &trans     &kp LEFT   &kp UP           &kp DOWN     &kp RIGHT
+        &none              &none              &none             &none                 &none
+    >;
+    };
+
+  /*
+            ,.=:!!t3Z3z.,
+          :tt:::tt333EE3
+          Et:::ztt33EEEL @Ee.,      ..,
+          ;tt:::tt333EE7 ;EEEEEEttttt33#
+        :Et:::zt333EEQ. $EEEEEttttt33QL
+        it::::tt333EEF @EEEEEEttttt33F
+        ;3=*^```"*4EEV :EEEEEEttttt33@.
+        ,.=::::!t=., ` @EEEEEEtttz33QF
+      ;::::::::zt33)   "4EEEtttji3P*
+      :t::::::::tt33.:Z3z..  `` ,..g.
+      i::::::::zt33F AEEEtttt::::ztF
+    ;:::::::::t33V ;EEEttttt::::t3
+    E::::::::zt33L @EEEtttt::::z3F
+    {3=*^```"*4E3) ;EEEtttt:::::tZ`
+                ` :EEEEtttt::::z7
+                    "VEzjt:;;z>*`
+  */
+
+    /* LAYER 4: LYR_W_BASE
+      * Activated by the physical Win switch through Layer-0 position 77.
+      * The minimum Windows base intentionally mirrors Layer 0's typing and
+      * layer-access bindings until a Windows-specific binding map is approved.
+    ┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┃TAP: ESC   ┃   F1    ┃   F2    ┃   F3    ┃   F4    ┃   F5    ┃   F6    ┃    F7   ┃    F8   ┃    F9   ┃   F10   ┃   F11   ┃   F12   ┃  DEL    ┃
+    ┃HOLD: CAPS ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┣━━━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━━━━━┫
+    ┃   ~   ┃    !    ┃    @    ┃    #    ┃    $    ┃    %    ┃    ^    ┃    *    ┃    -    ┃    (    ┃    )    ┃    _    ┃    +    ┃             ┃
+    ┃   `   ┃    1    ┃    2    ┃    3    ┃    4    ┃    5    ┃    6    ┃    7    ┃    8    ┃    9    ┃    0    ┃    -    ┃    =    ┃    BKSP     ┃
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┣━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━━━━━┫
+    ┃TAP: TAB  ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃    {    ┃    }    ┃    |     ┃
+    ┃HOLD: HYPR┃    Q    ┃    W    ┃    E    ┃    R    ┃    T    ┃    Y    ┃    U    ┃    I    ┃    O    ┃    P    ┃    [    ┃    ]    ┃    \     ┃
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃HOLD:MO(9)┃
+    ┣━━━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻━━━━━━━━━━┫
+    ┃TAP=ESC    ┃ TAP=A   ┃ TAP=S   ┃ TAP=D   ┃ TAP=F   ┃ TAP=G   ┃ TAP=H   ┃ TAP=J   ┃ TAP=K   ┃ TAP=L   ┃ TAP=;/: ┃    "    ┃                   ┃
+    ┃HOLD:MO(7) ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃ HLD=    ┃    '    ┃      RETURN       ┃
+    ┃           ┃  L_CTRL ┃  L_GUI  ┃  L_ALT  ┃ L_SHIFT ┃  MO(8)  ┃  MO(8)  ┃ R_SHIFT ┃  R_ALT  ┃  R_GUI  ┃  R_CTRL ┃         ┃                   ┃
+    ┣━━━━━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━━━━━━━━━━━━━━━━━━┫
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃    <    ┃    >    ┃    ?    ┃                          ┃
+    ┃   L_SHIFT    ┃    Z    ┃    X    ┃    C    ┃    V    ┃    B    ┃   N     ┃    M    ┃    ,    ┃    .    ┃    /    ┃        R_SHIFT           ┃
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┣━━━━━━━━━━━┳━━┻━━━━━━━┳━┻━━━━━━━━━╋━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━╋━━━━━━━━━┻━━━━┳━━━━┻━━━━━┳━┳━┻━━━━━━┳━━━━━━━━━┳━━━━━━━━━┫
+    ┃           ┃          ┃           ┃                                                 ┃              ┃1T/H: FUNC┃ ┃        ┃    ↑    ┃         ┃
+    ┃  L_CTRL   ┃  L_GUI   ┃   L_ALT   ┃             * &lt LYR_W_NAV1 SPACE *            ┃    R_ALT     ┃2T: SYM1  ┃ ┃    ←   ┣━━━━━━━━━┫   →     ┃
+    ┃           ┃          ┃           ┃                                                 ┃              ┃3T: NAV1  ┃ ┃        ┃    ↓    ┃         ┃
+    ┗━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━┛ ┗━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┛
+      */
+    layer_w_base {
+      bindings = <
+        //ESC                     //f1          //f2         //f3                  //f4          //f5              //f6              //f7          //f8          //f9         //f10            //f11      //f12      //DEL
+        &esc_caps CLCK ESC        &kp F1        &kp F2       &kp F3                &kp F4        &kp F5            &kp F6            &kp F7        &kp F8        &kp F9       &kp F10          &kp F11    &kp F12    &kp DEL
+        &kp GRAVE                 &kp N1        &kp N2       &kp N3                &kp N4        &kp N5            &kp N6            &kp N7        &kp N8        &kp N9       &kp N0           &kp MINUS  &kp EQUAL  &kp BSPC
+        &mt LC(LS(LG(LALT))) TAB  &kp Q         &kp W        &kp E                 &kp R         &kp T             &kp Y             &kp U         &kp I         &kp O        &kp P            &kp LBKT   &kp RBKT   &lt LYR_W_NAV1 BSLH
+        &lt LYR_W_FUNC ESC        &lhm LCTRL A  &lhm LGUI S  &lhm LALT D           &lhm LSHFT F  &lt LYR_W_SYM1 G  &lt LYR_W_SYM1 H  &rhm RSHFT J  &rhm RALT K   &rhm RGUI L  &rhm RCTRL SEMI  &kp SQT               &kp RET
+        &kp LSHFT                 &kp Z             &kp X    &kp C                 &kp V         &kp B             &kp N             &kp M         &kp COMMA     &kp DOT      &kp FSLH             &kp RSHFT
+        &kp LCTRL                 &uc LCMD      &uc LALT     &lt LYR_W_NAV1 SPACE                &uc RALT          &td_fn_win 0                    &kp LEFT      &kp UP       &kp DOWN         &kp RIGHT
+        &none                     &none         &none        &none                 &none
+      >;
+    };
+
+    /* LAYER 5: LYR_W_FUNC
+    ┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+    ┃           ┃         ┃         ┃         ┃         ┃VOQUILL  ┃MIC-MUTE:┃ PREVIOUS┃ PLAY/   ┃   NEXT  ┃         ┃         ┃         ┃         ┃
+    ┃TO(LYR_W_  ┃ Bright- ┃ Bright+ ┃ WIN+TAB ┃ALT+SPACE┃   V+N   ┃CTRL+ALT+┃  TRACK  ┃  PAUSE  ┃  TRACK  ┃   MUTE  ┃   Vol-  ┃  Vol+   ┃   DEL   ┃
+    ┃   BASE)   ┃         ┃         ┃         ┃         ┃         ┃    M    ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┣━━━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━━━━━┫
+    ┃       ┃TAP:BT1  ┃TAP:BT2  ┃TAP:BT3  ┃         ┃         ┃   Num-  ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃         ┃         ┃             ┃
+    ┃   ▼   ┃HLD:PAIR1┃HLD:PAIR2┃HLD:PAIR3┃    ▼    ┃    ▼    ┃   Lock  ┃    ×    ┃    ÷    ┃    +    ┃    −    ┃   Boot  ┃  Search ┃     ▼       ┃
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┣━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━━━━━┫
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃         ┃         ┃         ┃          ┃
+    ┃     ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃ DELETE  ┃    7    ┃    8    ┃    9    ┃BACKSPACE┃     ▼   ┃    ▼    ┃ LGS(X)   ┃
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+    ┣━━━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻━━━━━━━━━━┫
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃         ┃         ┃                   ┃
+    ┃     ▼     ┃  L_CTRL ┃  L_GUI  ┃  L_ALT  ┃ L_SHIFT ┃     ▼   ┃   TAB   ┃    4    ┃    5    ┃    6    ┃  ENTER  ┃     ▼   ┃         ▼         ┃
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                   ┃
+    ┣━━━━━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━━━━━━━━━━━━━━━━━━┫
+    ┃              ┃         ┃         ┃         ┃  Reset  ┃         ┃         ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃ NUMPAD  ┃                          ┃
+    ┃       ▼      ┃     ▼   ┃     ▼   ┃     ▼   ┃   GPU   ┃ Battery ┃    ,    ┃    1    ┃    2    ┃    3    ┃    .    ┃         WIN+DOT          ┃
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┣━━━━━━━━━━━┳━━┻━━━━━━━┳━┻━━━━━━━━━╋━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━╋━━━━━━━━━┻━━━━┳━━━━┻━━━━━┳━┳━┻━━━━━━┳━━━━━━━━━┳━━━━━━━━━┫
+    ┃           ┃          ┃           ┃                     NUMPAD                      ┃              ┃          ┃ ┃        ┃  PgUp   ┃         ┃
+    ┃      ▼    ┃     ▼    ┃     ▼     ┃                        0                        ┃       ▼      ┃     ▼    ┃ ┃  Home  ┣━━━━━━━━━┫   End   ┃
+    ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃  PgDn   ┃         ┃
+    ┗━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━┛ ┗━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┛
+     */
+    layer_w_func {
+      bindings = <
+        //ESC                   //F1                  //F2                  //F3         //f4           //f5             //f6           //f7             //f8              //f9         //f10         //f11                       //f12            //DEL
+        &fn_esc_change_win 0 4  &kp C_BRIGHTNESS_DEC  &kp C_BRIGHTNESS_INC  &uc LG(TAB)  &uc LG(E)      &kp C_AC_SEARCH  &uc LG(L)      &kp C_PREVIOUS   &kp C_PLAY_PAUSE  &kp C_NEXT   &kp C_MUTE    &kp C_VOLUME_DOWN           &kp C_VOLUME_UP  &kp DEL
+        &trans          &ht_bt_0 0 0          &ht_bt_1 0 0          &ht_bt_2 0 0  &trans             &trans           &kp KP_NUM     &kp KP_MULTIPLY  &kp KP_DIVIDE     &kp KP_PLUS  &kp KP_MINUS  &long_press_bootloader 0 0  &kp C_AC_SEARCH  &trans
+        &trans          &trans                &trans                &trans        &trans             &trans           &kp DEL        &kp KP_N7        &kp KP_N8         &kp KP_N9    &kp BSPC      &trans                      &trans           &uc LG(LS(S))
+        &trans          &kp LCTRL             &kp LGUI              &kp LALT      &kp LSHFT          &trans           &kp TAB        &kp KP_N4        &kp KP_N5         &kp KP_N6    &kp RET       &trans                      &trans
+        &trans          &trans                &trans                &trans        &uc LG(LC(LS(B)))  &out OUT_BAT     &kp COMMA      &kp KP_N1        &kp KP_N2         &kp KP_N3    &kp KP_DOT    &uc LG(DOT)
+        &trans          &trans                &trans                &kp KP_N0     &trans             &trans           &kp HOME       &kp PG_UP        &kp PG_DN         &kp END
+        &none           &none                 &none                 &none         &none
+      >;
+    };
+
+    /* LAYER 6: LYR_W_SYM1 — physical binding illustration
+    ┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┃TO(LYR_W_  ┃   F1    ┃   F2    ┃   F3    ┃   F4    ┃   F5    ┃   F6    ┃    F7   ┃    F8   ┃    F9   ┃   F10   ┃   F11   ┃   F12   ┃   ▼     ┃
+    ┃   BASE)   ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┣━━━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━━━━━┫
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┃   ▼   ┃   F13   ┃   F14   ┃   F15   ┃   F16   ┃   F17   ┃   F18   ┃   F19   ┃   F20   ┃   F21   ┃   F22   ┃   F23   ┃   F24   ┃     ▼       ┃
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┣━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━━━━━┫
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃S(KC_     ┃
+    ┃    [`]   ┃   [!]   ┃   [@]   ┃   [#]   ┃   [$]   ┃   [%]   ┃   [^]   ┃   [&]   ┃   [*]   ┃   [-]   ┃   [=]   ┃    ▼    ┃    ▼    ┃  BSLS)   ┃
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+    ┣━━━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻━━━━━━━━━━┫
+    ┃           ┃1T: <    ┃1T: [    ┃1T: {    ┃1T: (    ┃    *    ┃   *     ┃ 1T: )   ┃ 1T: }   ┃ 1T: ]   ┃         ┃         ┃                   ┃
+    ┃    [~]    ┃H: L_CTRL┃H: L_CMD ┃H: L_ALT ┃H: L_SHFT┃  SYMBOL ┃ SYMBOL  ┃ 2T: (_) ┃ 2T: {_} ┃ 2T: [_] ┃   [:]   ┃   ["]   ┃       [=]         ┃
+    ┃           ┃         ┃         ┃         ┃         ┃    *    ┃   *     ┃         ┃         ┃         ┃         ┃         ┃                   ┃
+    ┣━━━━━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━━━━━━━━━━━━━━━━━━┫
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃ 1T: <   ┃ 1T: >   ┃         ┃                          ┃
+    ┃       ▼      ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃    ▼    ┃ 2T: <_> ┃ 2T: </_>┃   [?]   ┃         Emoji-m          ┃
+    ┃              ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┣━━━━━━━━━━━┳━━┻━━━━━━━┳━┻━━━━━━━━━╋━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━╋━━━━━━━━━┻━━━━┳━━━━┻━━━━━┳━┳━┻━━━━━━┳━━━━━━━━━┳━━━━━━━━━┫
+    ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃    ↑    ┃         ┃
+    ┃     ▼     ┃    ▼     ┃     ▼     ┃                         ▼                       ┃       ▼      ┃     ▼    ┃ ┃    ←   ┣━━━━━━━━━┫   →     ┃
+    ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃    ↓    ┃         ┃
+    ┗━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━┛ ┗━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┛
+     */
+    layer_w_sym1 {
+      bindings = <
+        //ESC           //f1       //f2      //f3      //f4       //f5       //f6       //f7              //f8              //f9              //f10          //f11          //f12          //DEL
+        &to LYR_W_BASE  &kp F1     &kp F2    &kp F3    &kp F4     &kp F5     &kp F6     &kp F7            &kp F8            &kp F9            &kp F10        &kp F11        &kp F12        &kp DEL
+        &trans          &kp F13    &kp F14   &kp F15   &kp F16    &kp F17    &kp F18    &kp F19           &kp F20           &kp F21           &kp F22        &kp F23        &kp F24        &trans
+        &kp GRAVE       &kp EXCL   &kp AT    &kp HASH  &kp DLLR   &kp PRCNT  &kp CARET  &kp AMPS          &kp ASTERISK      &kp MINUS         &kp EQUAL      &trans         &trans         &kp PIPE
+        &kp TILDE       &lhm LCTRL LT &lhm LGUI LBKT &lhm LALT LBRC &lhm LSHFT LPAR &none &none        &td_sym_parens 0  &td_sym_braces 0  &td_sym_brackets 0 &kp COLON       &kp DQT         &kp EQUAL
+        &trans          &trans     &trans    &trans    &trans     &trans     &trans     &trans            &td_sym_angle_brackets_comma 0            &td_sym_angle_brackets_period 0         &kp QMARK      &uc LG(DOT)
+        &trans          &trans     &trans    &trans    &trans     &trans     &kp LEFT   &kp UP            &kp DOWN          &kp RIGHT
+        &none           &none      &none     &none     &none
+      >;
+    };
+
+    /* LAYER 7: LYR_W_NAV1 — physical binding illustration
+     * [Esc F1..F12 Del] => W base, F13..F24, transparent Del.
+     * [Tab Q..P [ ] \\] => Alt+F4, Ctrl+W, mouse wheel, Delete/Up/Backspace, mouse directions.
+     * [Caps A..; Enter] => inert Caps, modifiers, Home/Left/Down/Right/End.
+     * [Shift Z X C V B N M , . / RShift] => Ctrl+Z/X/C/V/B, PgUp/PgDn, tab and slash chords.
+     * [Ctrl Alt Win Space Alt Fn arrows] => mouse-speed 1/2/3, inert space/alt/fn, arrow cluster.
+
+    ┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┓
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┃TO(LYR_W_  ┃   F13   ┃   F14   ┃   F15   ┃   F16   ┃   F17   ┃   F18   ┃   F19   ┃   F20   ┃   F21   ┃   F22   ┃   F23   ┃   F24   ┃   ▼     ┃
+    ┃   BASE)   ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃
+    ┣━━━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━┳━━━┻━━━━━━━━━┫
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┃   ▼   ┃    ▼    ┃    ▼    ┃    #    ┃    ▼    ┃   MW ↓  ┃    ▼    ┃    ▼    ┃  SPACE  ┃    ▼    ┃  MBtn1  ┃ Mouse ↑ ┃  MBtn2  ┃     ▼       ┃
+    ┃       ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃             ┃
+    ┣━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━━━━━┫
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+    ┃    ▼     ┃ LA(F4)  ┃ LC(W)   ┃  MW ←   ┃  MW ↑   ┃  MW →   ┃  LC(Y)  ┃   Del   ┃    ↑    ┃  Bksp   ┃ Mouse ← ┃ Mouse ↓ ┃ Mouse → ┃    ▼     ┃
+    ┃          ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃          ┃
+    ┣━━━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻┳━━━━━━━━┻━━━━━━━━━━┫
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                   ┃
+    ┃     ▼     ┃  L_CTRL ┃  L_GUI  ┃  L_ALT  ┃ L_SHIFT ┃  SPACE  ┃   Home  ┃    ←    ┃    ↓    ┃    →    ┃   End   ┃    ▼    ┃        ▼          ┃
+    ┃           ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃         ┃                   ┃
+    ┣━━━━━━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━┳━━━━━━┻━━━━━━━━━━━━━━━━━━━┫
+    ┃              ┃         ┃         ┃         ┃1T:LC(V) ┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┃      ▼       ┃  LC(Z)  ┃  LC(X)  ┃  LC(C)  ┃2T:LG(V) ┃  LC(B)  ┃  PgUp   ┃  PgDn   ┃LCS(TAB) ┃ LC(TAB) ┃ LCS(/)  ┃           ▼              ┃
+    ┃              ┃         ┃         ┃         ┃3T:LCS(V)┃         ┃         ┃         ┃         ┃         ┃         ┃                          ┃
+    ┣━━━━━━━━━━━┳━━┻━━━━━━━┳━┻━━━━━━━━━╋━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━╋━━━━━━━━━┻━━━━┳━━━━┻━━━━━┳━┳━┻━━━━━━┳━━━━━━━━━┳━━━━━━━━━┫
+    ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃    ↑    ┃         ┃
+    ┃   MSPD1   ┃   MSPD2  ┃   MSPD3   ┃                                                 ┃       ▼      ┃     ▼    ┃ ┃    ←   ┣━━━━━━━━━┫   →     ┃
+    ┃           ┃          ┃           ┃                                                 ┃              ┃          ┃ ┃        ┃    ↓    ┃         ┃
+    ┗━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━┛ ┗━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━┛
+    */
+    layer_w_nav1 {
+      bindings = <
+        &to LYR_W_BASE     &kp F13            &kp F14            &kp F15               &kp F16             &kp F17                &kp F18     &kp F19          &kp F20      &kp F21           &kp F22             &kp F23         &kp F24             &trans
+        &trans             &trans             &trans             &kp HASH              &trans              &uc MOUSE_WHEEL_DOWN   &trans      &trans           &kp SPACE    &trans            &uc MOUSE_BUTTON_1  &uc MOUSE_UP    &uc MOUSE_BUTTON_2  &trans
+        &trans             &uc LA(F4)         &uc LC(W)          &uc MOUSE_WHEEL_LEFT  &uc MOUSE_WHEEL_UP  &uc MOUSE_WHEEL_RIGHT  &uc LC(Y)   &kp DEL          &kp UP       &kp BSPC          &uc MOUSE_LEFT      &uc MOUSE_DOWN  &uc MOUSE_RIGHT     &trans
+        &trans             &kp LCTRL          &kp LGUI           &kp LALT  &kp LSHFT   &kp SPACE           &kp HOME               &kp LEFT    &kp DOWN         &kp RIGHT    &kp END           &trans              &trans
+        &trans             &uc LC(Z)          &uc LC(X)          &uc LC(C)  &uc LC(V)  &uc LC(B)           &kp PG_UP              &kp PG_DN   &uc LC(LS(TAB))  &uc LC(TAB)  &trans            &trans
+        &uc MOUSE_SPEED_1  &uc MOUSE_SPEED_2  &uc MOUSE_SPEED_3  &trans                &trans              &trans                 &kp LEFT    &kp UP           &kp DOWN     &kp RIGHT
+        &none  &none  &none  &none  &none
+      >;
+    };
+
+  };
+};

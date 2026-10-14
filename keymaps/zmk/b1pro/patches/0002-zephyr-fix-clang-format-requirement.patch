@@ -1,0 +1,19 @@
+From: ZMK workspace
+Subject: [PATCH] scripts: fix malformed clang-format requirement
+
+The original requirement contains an invalid trailing "x", which prevents
+Python dependency resolution from interpreting the version specifier.
+
+diff --git a/scripts/requirements-extras.txt b/scripts/requirements-extras.txt
+index 915b5373a5..74867d434b 100644
+--- a/scripts/requirements-extras.txt
++++ b/scripts/requirements-extras.txt
+@@ -10,7 +10,7 @@ gitlint
+ junit2html
+ 
+ # helper for developers - code formatter
+-clang-format>=1.13x
++clang-format>=1.13
+ 
+ # Script used to build firmware images for NXP LPC MCUs.
+ lpc_checksum

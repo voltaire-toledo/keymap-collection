@@ -1,0 +1,57 @@
+name: Build ZMK B1 Pro Firmware
+
+on:
+  push:
+    paths:
+      - 'keymaps/zmk/**'
+      - '.github/workflows/build-zmk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:3.2
+    steps:
+      - name: Checkout Keymap Repository
+        uses: actions/checkout@v4
+
+      - name: Initialize West Workspace
+        run: |
+          git config --global --add safe.directory '*'
+          git clone --depth 1 -b b1-pro-v.0.25.X https://github.com/voltaire-toledo/submod-zmk.git zmk
+          cd zmk
+          west init -l app
+          west update -n
+          west zephyr-export
+
+      - name: Apply Zephyr & DFU Patches
+        run: |
+          cd zmk/zephyr
+          git apply ../0001-esb-nrf-fix.patch || true
+          git apply ../0002-zephyr-fix-clang-format-requirement.patch || true
+          cd ..
+          cp -f ../keymaps/zmk/b1pro/patches/tdfu_prv.h app/src/dfu/tdfu_prv.h
+
+      - name: Inject Target Keymap
+        run: |
+          cp -f keymaps/zmk/b1pro/B1PRO/QC-IN_PROGRESS/v0.25.8-candidate.keymap zmk/app/boards/shields/keychron/b1/us/keychron_b1_us.keymap
+
+      - name: Compile B1 Pro Firmware
+        run: |
+          cd zmk
+          export SOURCE_DATE_EPOCH=1791108125
+          west build -s app -b keychron -d build/b1pro -p always -- -DSHIELD=keychron_b1_us -DBUILD_VERSION=c080d0853f98
+
+      - name: Verify Artifact Checksum
+        run: |
+          mkdir -p output
+          cp zmk/build/b1pro/zephyr/zmk.uf2 output/zmk_b1pro.uf2
+          sha256sum output/zmk_b1pro.uf2
+          echo "d917b9b95a845dd03baffb582882254415ea239951d81b1246b93a9797612a76  output/zmk_b1pro.uf2" | sha256sum -c -
+
+      - name: Upload Firmware Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keychron_b1_pro_v0.25.8_firmware
+          path: output/*.uf2
