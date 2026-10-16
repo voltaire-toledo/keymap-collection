@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Keymap Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout Keychron QMK Base (Ephemeral)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: Keychron/qmk_firmware
           ref: 2025q3
