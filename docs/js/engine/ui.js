@@ -246,7 +246,19 @@ export function initUI(allLayers, grid, externalStore) {
       dom.matrixHold.textContent = matrix.hold;
       dom.matrixDance.textContent = matrix.dance;
       dom.matrixLong.textContent = matrix.long;
-      dom.matrixCombo.innerHTML = matrix.combo;
+
+      if (dom.matrixCombo) {
+        dom.matrixCombo.replaceChildren();
+        if (matrix.combo) {
+          const lines = String(matrix.combo).split(/\r?\n|<br\s*\/?>/i);
+          lines.forEach((line, index) => {
+            if (index > 0) {
+              dom.matrixCombo.appendChild(document.createElement("br"));
+            }
+            dom.matrixCombo.appendChild(document.createTextNode(line));
+          });
+        }
+      }
 
       const setCellState = (cellEl, valEl, val) => {
         if (!cellEl || !valEl) return;

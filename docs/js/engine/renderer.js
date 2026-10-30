@@ -417,7 +417,7 @@ export function resolveFirmwareMatrix(cell) {
   if (cell.powers) {
     const p = cell.powers;
     const comboStr = Array.isArray(p.combos)
-      ? p.combos.map((c) => `+ [${c.withKeys.join(" + ")}] ⇒ ${c.action}`).join("<br>")
+      ? p.combos.map((c) => `+ [${c.withKeys.join(" + ")}] ⇒ ${c.action}`).join("\n")
       : (p.combo || "—");
 
     return {
