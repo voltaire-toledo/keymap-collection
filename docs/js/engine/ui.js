@@ -738,6 +738,15 @@ export function initUI(allLayers, grid, externalStore) {
       { name: "Windows", platform: "win" },
     ];
 
+    // Pre-group layer IDs by platform in a single pass
+    const layersByPlatform = {};
+    for (const id in allLayers) {
+      const layer = allLayers[id];
+      if (layer && layer.platform) {
+        (layersByPlatform[layer.platform] ||= []).push(id);
+      }
+    }
+
     groups.forEach((group) => {
       const groupEl = document.createElement("div");
       groupEl.className = "sidebar-group";
@@ -747,20 +756,19 @@ export function initUI(allLayers, grid, externalStore) {
       labelEl.textContent = group.name;
       groupEl.appendChild(labelEl);
 
-      Object.keys(allLayers)
-        .filter((id) => allLayers[id].platform === group.platform)
-        .forEach((id) => {
-          const layer = allLayers[id];
-          const btn = document.createElement("button");
-          btn.className = "layer-btn";
-          btn.type = "button";
-          btn.dataset.layer = id;
-          btn.innerHTML = `<span class="num">${String(layer.num).padStart(2, "0")}</span><span>${escapeHtml(layer.name)}</span>`;
-          btn.addEventListener("click", () => {
-            store.setState({ layerId: id, selectedCoord: null, selectedCell: null });
-          });
-          groupEl.appendChild(btn);
+      const layerIds = layersByPlatform[group.platform] || [];
+      layerIds.forEach((id) => {
+        const layer = allLayers[id];
+        const btn = document.createElement("button");
+        btn.className = "layer-btn";
+        btn.type = "button";
+        btn.dataset.layer = id;
+        btn.innerHTML = `<span class="num">${String(layer.num).padStart(2, "0")}</span><span>${escapeHtml(layer.name)}</span>`;
+        btn.addEventListener("click", () => {
+          store.setState({ layerId: id, selectedCoord: null, selectedCell: null });
         });
+        groupEl.appendChild(btn);
+      });
 
       dom.layerSidebarEl.appendChild(groupEl);
     });
