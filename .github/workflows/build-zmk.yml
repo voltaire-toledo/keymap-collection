@@ -51,7 +51,7 @@ jobs:
           echo "d917b9b95a845dd03baffb582882254415ea239951d81b1246b93a9797612a76  output/zmk_b1pro.uf2" | sha256sum -c -
 
       - name: Upload Firmware Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: keychron_b1_pro_v0.25.8_firmware
           path: output/*.uf2
