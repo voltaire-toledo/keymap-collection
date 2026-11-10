@@ -145,6 +145,8 @@ export function formatChangelogHtml(release) {
  * @param {ReturnType<createStore>} [store] - Reactive application store
  */
 export function initUI(allLayers, grid, externalStore) {
+  const keyboardsById = new Map(KEYBOARD_CATALOG.map((keyboard) => [keyboard.id, keyboard]));
+  const getKeyboard = (keyboardId) => keyboardsById.get(keyboardId);
   // ---------------------------------------------------------------------------
   // 1. Cached DOM Elements
   // ---------------------------------------------------------------------------
@@ -364,7 +366,7 @@ export function initUI(allLayers, grid, externalStore) {
 
   function renderStage(state) {
     const { keyboardId, layerId } = state;
-    const keyboard = KEYBOARD_CATALOG.find((k) => k.id === keyboardId);
+    const keyboard = getKeyboard(keyboardId);
 
     if (keyboardId === "b1pro") {
       const csStage = document.getElementById("coming-soon-stage");
@@ -509,7 +511,7 @@ export function initUI(allLayers, grid, externalStore) {
 
   function openChangelogModal() {
     const state = store.getState();
-    const keyboard = KEYBOARD_CATALOG.find((k) => k.id === state.keyboardId);
+    const keyboard = getKeyboard(state.keyboardId);
     if (!keyboard) return;
 
     const release = keyboard.releases?.find((r) => r.id === state.releaseId) || keyboard.releases?.[0] || null;
@@ -664,7 +666,7 @@ export function initUI(allLayers, grid, externalStore) {
     if (!dom.versionSelectEl) return;
     dom.versionSelectEl.innerHTML = "";
 
-    const keyboard = KEYBOARD_CATALOG.find((k) => k.id === keyboardId);
+    const keyboard = getKeyboard(keyboardId);
     const releases = keyboard?.releases || [];
 
     if (!releases.length) {
@@ -711,7 +713,7 @@ export function initUI(allLayers, grid, externalStore) {
   if (dom.versionSelectEl) {
     dom.versionSelectEl.addEventListener("change", (e) => {
       const releaseId = e.target.value;
-      const keyboard = KEYBOARD_CATALOG.find((k) => k.id === store.getState().keyboardId);
+      const keyboard = getKeyboard(store.getState().keyboardId);
       const rel = keyboard?.releases?.find((r) => r.id === releaseId) || null;
       store.setState({ releaseId });
       renderReleaseUI(rel);
