@@ -1,9 +1,11 @@
 # Shared Firmware Candidate Workflow
 
-Referenced by `QMK/AGENTS.md` and `ZMK/AGENTS.md`. This file holds the
-candidate → QC → release discipline common to both firmware tracks.
-Each AGENTS.md fills in its own project name, directory paths, artifact type,
-and protected hardware behavior.
+This file holds the candidate → QC → release discipline common to both firmware
+tracks. QMK project material is in `keymaps/qmk/v1_max/V1-MAX/`; ZMK project
+material is in `keymaps/zmk/b1pro/B1PRO/`. Historical references to root `QMK/`
+and `ZMK/` submodules or their AGENTS.md files do not describe the current layout.
+For build-only provisioning and pinned inputs, follow
+[the container build guide](CONTAINER-FIRMWARE-BUILDS.md).
 
 ## Session start
 
