@@ -10,3 +10,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Container firmware workspaces and generated binaries
+.firmware-build/
+build_output/
+local-keymaps/

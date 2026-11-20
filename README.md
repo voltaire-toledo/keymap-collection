@@ -1,47 +1,26 @@
 # Keymap Collection
 
-This repository serves as the central hub for my custom keyboard firmware and keymaps. It manages two separate Git submodules for different keyboard ecosystems:
+Custom keyboard firmware, keymaps, design documents, and hardware QC records.
 
-## [QMK Firmware (Keychron V1 Max)](./QMK)
-Contains the custom keymap, QMK build configurations, and developer lab documentation tailored specifically for the **Keychron V1 Max** (ANSI Encoder).
-- **Core Keyboard:** Keychron V1 Max
-- **Location:** `./QMK`
-
-## [ZMK Firmware (Keychron B1 Pro)](./ZMK)
-Contains the custom keymap, Zephyr workspace scaffolding, and Windows PowerShell build scripts tailored specifically for the **Keychron B1 Pro**.
-- **Core Keyboard:** Keychron B1 Pro
-- **Location:** `./ZMK`
+- **Keychron V1 Max (QMK, ANSI encoder):** `keymaps/qmk/v1_max/`
+- **Keychron B1 Pro (ZMK, ANSI/US):** `keymaps/zmk/b1pro/`
 
 ## Developer quick start
-
-This section is for contributors working with the firmware and keymap source in
-this repository. To download prebuilt firmware instead, use the repository's
-GitHub Releases.
-
-The `QMK` and `ZMK` directories are Git submodules, so clone the repository
-using either of these options.
-
-Clone everything in one command:
-
-```bash
-git clone --recurse-submodules https://github.com/voltaire-toledo/keymap-collection.git
-cd keymap-collection
-```
-
-Or initialize the submodules after a normal clone:
 
 ```bash
 git clone https://github.com/voltaire-toledo/keymap-collection.git
 cd keymap-collection
-git submodule update --init --recursive
+bash scripts/build-firmware.sh qmk
+bash scripts/build-firmware.sh zmk
 ```
 
-Both commands check out the exact QMK and ZMK commits pinned by this
-repository. If you intentionally need to advance the submodules to the latest
-commits on their configured tracking branches, run:
+Install Git, Bash, and Docker first. Follow the complete
+[container provisioning and firmware build instructions](CONTAINER-FIRMWARE-BUILDS.md)
+for requirements, pinned source revisions, generated files, proxy setup, and
+troubleshooting. The firmware sources are directories in this repository,
+not Git submodules. Generated firmware goes to `build_output/` and is not
+committed automatically.
 
-```bash
-git submodule update --remote --recursive
-```
-
-Review and commit the resulting submodule-pointer changes deliberately.
+For prebuilt firmware, use GitHub Releases. A successful build is not hardware
+QC; follow [the firmware candidate workflow](FIRMWARE-WORKFLOW.md) before
+flashing or promoting a release.

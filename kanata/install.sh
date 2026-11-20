@@ -1,47 +1,110 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Exit on error
-set -e
+set -euo pipefail
 
-echo "Starting Kanata and Karabiner Driver installation..."
+readonly KANATA_API="https://api.github.com/repos/jtroo/kanata/releases/latest"
+readonly DRIVER_API="https://api.github.com/repos/pqrs-org/Karabiner-DriverKit-VirtualHIDDevice/releases/latest"
+readonly DRIVER_TEAM_ID="G43BCU2T37"
+readonly INSTALL_DIR="/usr/local/bin"
 
-# 1. Install Kanata
-echo "Downloading latest Kanata binary for macOS..."
-KANATA_URL=$(curl -s https://api.github.com/repos/jtroo/kanata/releases/latest | grep "browser_download_url.*kanata_macos_arm64" | cut -d : -f 2,3 | tr -d \")
-# Fallback to x86_64 if arm64 not found or if on Intel (though we assume Apple Silicon for Tahoe v26)
-if [ -z "$KANATA_URL" ]; then
-    KANATA_URL=$(curl -s https://api.github.com/repos/jtroo/kanata/releases/latest | grep "browser_download_url.*kanata_macos" | head -n 1 | cut -d : -f 2,3 | tr -d \")
-fi
+fail() {
+    printf 'Error: %s\n' "$1" >&2
+    exit 1
+}
 
-curl -L "$KANATA_URL" -o kanata_bin
-chmod +x kanata_bin
-sudo mv kanata_bin /usr/local/bin/kanata
+latest_tag() {
+    local tag
+    tag=$(curl -fsSL "$1" | awk -F '"' '/"tag_name"[[:space:]]*:/ { print $4; exit }')
+    [[ "$tag" =~ ^v[0-9]+([.-][[:alnum:].-]+)*$ ]] || fail "Could not read a valid release tag from $1"
+    printf '%s\n' "$tag"
+}
 
-echo "Kanata installed to /usr/local/bin/kanata"
+verify_kanata_archive() {
+    local asset="$1"
+    local archive="$2"
+    local sums="$3"
+    local expected
 
-# 2. Install Karabiner-DriverKit-VirtualHIDDevice
-echo "Downloading latest Karabiner-DriverKit-VirtualHIDDevice..."
-DRIVER_URL=$(curl -s https://api.github.com/repos/pqrs-org/Karabiner-DriverKit-VirtualHIDDevice/releases/latest | grep "browser_download_url.*pkg" | cut -d : -f 2,3 | tr -d \")
+    expected=$(awk -v name="$asset" '$2 == name { print $1; exit }' "$sums")
+    [[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || fail "No valid SHA-256 entry found for $asset"
+    printf '%s  %s\n' "$expected" "$archive" | shasum -a 256 -c -
+}
 
-curl -L "$DRIVER_URL" -o driver.pkg
-echo "Installing driver.pkg (will require sudo)..."
-sudo installer -pkg driver.pkg -target /
-rm driver.pkg
+[[ "$(uname -s)" == "Darwin" ]] || fail "This installer supports macOS only"
 
-# 3. Activate Driver
-echo "Activating Karabiner-VirtualHIDDevice..."
-if [ -f "/Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager" ]; then
-    /Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager activate
+case "$(uname -m)" in
+    arm64)
+        kanata_asset="macos-binaries-arm64.zip"
+        kanata_binary="kanata_macos_arm64"
+        ;;
+    x86_64)
+        kanata_asset="macos-binaries-x64.zip"
+        kanata_binary="kanata_macos_x64"
+        ;;
+    *)
+        fail "Unsupported macOS architecture: $(uname -m)"
+        ;;
+esac
+
+command -v curl >/dev/null || fail "curl is required"
+command -v shasum >/dev/null || fail "shasum is required"
+command -v unzip >/dev/null || fail "unzip is required"
+command -v pkgutil >/dev/null || fail "pkgutil is required"
+command -v spctl >/dev/null || fail "spctl is required"
+
+tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/kanata-install.XXXXXX")
+trap 'rm -rf "$tmp_dir"' EXIT
+
+printf 'Resolving the latest Kanata release...\n'
+kanata_tag=$(latest_tag "$KANATA_API")
+kanata_base="https://github.com/jtroo/kanata/releases/download/$kanata_tag"
+kanata_archive="$tmp_dir/$kanata_asset"
+kanata_sums="$tmp_dir/sha256sums"
+
+curl -fsSL "$kanata_base/sha256sums" -o "$kanata_sums"
+curl -fsSL "$kanata_base/$kanata_asset" -o "$kanata_archive"
+verify_kanata_archive "$kanata_asset" "$kanata_archive" "$kanata_sums"
+
+unzip -p "$kanata_archive" "$kanata_binary" > "$tmp_dir/kanata"
+[[ -s "$tmp_dir/kanata" ]] || fail "The verified archive did not contain $kanata_binary"
+chmod 0755 "$tmp_dir/kanata"
+
+printf 'Resolving the latest Karabiner virtual HID driver release...\n'
+driver_tag=$(latest_tag "$DRIVER_API")
+driver_version=${driver_tag#v}
+driver_asset="Karabiner-DriverKit-VirtualHIDDevice-$driver_version.pkg"
+driver_url="https://github.com/pqrs-org/Karabiner-DriverKit-VirtualHIDDevice/releases/download/$driver_tag/$driver_asset"
+driver_pkg="$tmp_dir/$driver_asset"
+curl -fsSL "$driver_url" -o "$driver_pkg"
+
+signature=$(pkgutil --check-signature "$driver_pkg") || fail "The driver package signature is invalid"
+printf '%s\n' "$signature"
+grep -Fq "($DRIVER_TEAM_ID)" <<< "$signature" || fail "The driver package signer does not match the expected developer team"
+spctl --assess --type install --verbose "$driver_pkg" || fail "Gatekeeper rejected the driver package"
+
+printf 'Installing verified Kanata binary...\n'
+sudo mkdir -p "$INSTALL_DIR"
+sudo install -m 0755 "$tmp_dir/kanata" "$INSTALL_DIR/kanata"
+
+printf 'Installing verified Karabiner virtual HID driver...\n'
+sudo installer -pkg "$driver_pkg" -target /
+
+printf 'Activating Karabiner-VirtualHIDDevice...\n'
+manager="/Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager"
+if [[ -x "$manager" ]]; then
+    "$manager" activate
 else
-    echo "Warning: Activation manager not found at expected path. Please check /Applications."
+    printf 'Warning: Activation manager was not found at the expected path. Check /Applications.\n' >&2
 fi
 
-echo "--------------------------------------------------------"
-echo "Installation complete!"
-echo "NEXT STEPS:"
-echo "1. Go to System Settings > Privacy & Security."
-echo "2. Scroll to 'Security' and click 'Allow' for the pqrs.org extension."
-echo "3. Grant 'Input Monitoring' permission to your Terminal app."
-echo "4. Run 'kanata --list' to find your keyboard names."
-echo "5. Update kanata.kbd and run 'sudo kanata --cfg kanata.kbd'."
-echo "--------------------------------------------------------"
+cat <<'EOF'
+--------------------------------------------------------
+Installation complete!
+NEXT STEPS:
+1. Go to System Settings > General > Login Items & Extensions > Driver Extensions.
+2. Enable the Karabiner-VirtualHIDDevice extension if macOS requests it.
+3. Grant Input Monitoring permission to your terminal or Kanata service.
+4. Run `kanata --list` to find your keyboard names.
+5. Update your Kanata configuration and start Kanata with that config.
+--------------------------------------------------------
+EOF

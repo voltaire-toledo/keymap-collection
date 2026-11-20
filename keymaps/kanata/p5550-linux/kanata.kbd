@@ -1,0 +1,351 @@
+;; ============================================================================
+;; Kanata Home-Row Mods Configuration v0.26
+;; Layout: CMAS (Ctrl, Meta, Alt, Shift) mirrored on both hands
+;; ----------------------------------------------------------------------------
+;; Platform: Linux, Dell Precision laptop keyboard
+;; Live config: ~/.config/kanata/kanata.kbd
+;; Service: systemd --user kanata.service (started with --debug)
+;; ----------------------------------------------------------------------------
+;; CHANGELOG v0.26:
+;; - Home-row mods use release-order disambiguation with a 200 ms hold timeout.
+;; - Opposite-hand keys can activate the modifier, while same-hand home-row
+;;   rolls resolve the HRM as a tap when the rolled key is released.
+;; - G and H are responsive symbol-layer activators using the same
+;;   tap-hold-release behavior.
+;; - The symbol layer maps Tab to ` and Caps Lock to ~.
+;; - Double-tap symbol keys insert paired delimiters and move the cursor inside.
+;; - The nomods layer and 150 ms idle reset reduce accidental HRM activation
+;;   during fast sequential typing.
+;; ----------------------------------------------------------------------------
+;; COMBO KEYS
+;; Combo activation window: 60 ms (defvar combo-timeout).
+;; Minimum idle time before a chord can activate: 350 ms
+;; (defcfg chords-v2-min-idle).
+;; Each combo is active on the layers listed in its definition and requires
+;; all keys to be released before the chord action completes.
+;;
+;;  Keys        Tap    Hold       Action
+;;  Esc+Backsp  lrld   N/A        Reload Kanata Layers (softer-reset)
+;;  Caps Lock   Esc    num_layer
+;;  Space       Space  nav_layer
+;;  Tab         Tab    Hyper: 🟆   [Ctrl]+[Alt]+[Super]+[Shift] Modifier
+;;  G or H      G/H    sym_layer
+;;  Z           Z      bypass
+;;  A and ;     A/;    CTRL mod   A=L_CTRL   ;=R_CTRL
+;;  S and L     S/L    GUI mod    S=L_GUI    L=R_GUI
+;;  D and K     D/K    ALT mod    D=L_ALT    K=R_ALT (Alt_Gr)
+;;  F and J     F/J    SHIFT mod  F=L_SHIFT  J=R_SHIFT
+;; ----------------------------------------------------------------------------
+;; Keep this inventory synchronized with the defchordsv2 block below.
+;; ============================================================================
+
+(defcfg
+  process-unmapped-keys yes
+  block-unmapped-keys no
+  log-layer-changes no
+  concurrent-tap-hold yes
+  delegate-to-first-layer yes
+  chords-v2-min-idle 350
+  linux-dev-names-exclude (
+    "Keychron V1 Max"
+    "Keychron B1 Pro"
+  )
+)
+
+;; -----------------------------------------------------------------------
+;; TIMINGS & POSITIONAL LISTS
+;; -----------------------------------------------------------------------
+(defvar
+  tapping-term       200    ;; HRM hold timeout
+  quick-tap-ms       300    ;; tap-repress timeout
+  require-prior-idle 150    ;; nomods idle reset; not an HRM hold gate
+  combo-timeout      60     ;; combo activation window
+
+  ;; Keys used for bilateral disambiguation in
+  ;; tap-hold-release-tap-keys-release. Opposite-hand keys activate an HRM
+  ;; modifier; same-hand keys are handled by the release-trigger lists below.
+  left-hand-keys  (grv 1 2 3 4 5 tab q w e r t g z x c v b)
+  right-hand-keys (6 7 8 9 0 - = bspc y u i o p [ ] \ scln ' ret n m , . /)
+
+  ;; Releasing one of these while holding an HRM on the same hand resolves the
+  ;; HRM as a tap, preventing Ctrl/Gui from being added to same-hand rolls.
+  ;; The extra left-hand keys cover the wider rolls that become more error-prone
+  ;; with fatigue, especially around G/B/C/V.
+  home-row-left-keys  (a s d f g b c v)
+  home-row-right-keys (j k l scln ')
+)
+
+;; Release-order home-row mod templates.
+(deftemplate lhrm (tappingterm tap-key hold-key)
+  (tap-hold-release-tap-keys-release $quick-tap-ms $tappingterm
+    (multi $tap-key @tap) $hold-key
+    $left-hand-keys $home-row-left-keys)
+)
+
+(deftemplate rhrm (tappingterm tap-key hold-key)
+  (tap-hold-release-tap-keys-release $quick-tap-ms $tappingterm
+    (multi $tap-key @tap) $hold-key
+    $right-hand-keys $home-row-right-keys)
+)
+
+(deftemplate nomod (tap-key)
+  (multi $tap-key @tap)
+)
+
+(defvirtualkeys
+  to-base (layer-switch base)  ;; used by @tap to return from nomods layer after idle
+)
+
+;; -----------------------------------------------------------------------
+;; ALIASES & BEHAVIOR LOGIC
+;; -----------------------------------------------------------------------
+(defalias
+  cw (caps-word 2000)
+
+  ;; require-prior-idle emulation (from ldebritto-urob):
+  ;; Each keypress briefly switches to `nomods` (no HRM keys), then
+  ;; on-idle fires after $require-prior-idle ms of inactivity to return to base.
+  ;; This prevents HRM hold from triggering during fast sequential typing.
+  tap (multi
+    (layer-switch nomods)
+    (on-idle $require-prior-idle tap-virtualkey to-base)
+  )
+
+  ;; --- Caps Lock: tap=Esc, hold=Numpad ---
+  caps_num (tap-hold-release $quick-tap-ms $tapping-term esc (layer-while-held num))
+
+  ;; --- Spacebar: tap=space, hold=nav layer ---
+  ;; Increased timeout and changed to tap-hold-release to prevent dropping spaces during fast typing
+  spc_nav (tap-hold-release 200 250 spc (layer-toggle nav))
+
+  ;; --- Tab: tap=tab, hold=Hyper ---
+  tab_hyper (tap-hold-release $quick-tap-ms $tapping-term tab (multi lctl lalt lmet lsft))
+
+  ;; --- Bilateral Symbol Layer Aliases ---
+  tilde    S-grv
+  at       S-2
+  hash     S-3
+  dollar   S-4
+  percent  S-5
+  lparen   S-9
+  lbrace   S-[
+  lbracket lbrc
+  backtick grv
+  excl     S-1
+
+  caret    S-6
+  amp      S-7
+  asterisk S-8
+  rparen   S-0
+  rbrace   S-]
+  rbracket rbrc
+
+  under    S--
+  plus     S-=
+
+  ;; --- Symbol-layer tap/hold modifiers ---
+  ;; Tap produces a bracket-like symbol; hold fg the base HRM modifier.
+  sym_a (tap-hold-order $quick-tap-ms 75 S-, lctl (require-prior-idle $require-prior-idle))
+  sym_s (tap-hold-order $quick-tap-ms 75 lbrc lmet (require-prior-idle $require-prior-idle))
+  sym_d (tap-hold-order $quick-tap-ms 75 S-[ lalt (require-prior-idle $require-prior-idle))
+  sym_f (tap-hold-order $quick-tap-ms 75 S-9 lsft (require-prior-idle $require-prior-idle))
+
+  ;; --- Tap-Dance Macros ---
+  ;; Each pair ends with Left so the cursor remains inside the wrapper.
+  m_parens_cursor (macro S-9 50 S-0 50 left)
+  m_braces_cursor (macro S-[ 50 S-] 50 left)
+  m_brackets_cursor (macro lbrc 50 rbrc 50 left)
+  m_angles_cursor (macro S-, 50 S-. 50 left)
+  m_emmet_cursor  (macro S-, 50 / 50 S-. 50 left)
+
+  ;; --- Tap-Dance Aliases ---
+  td_j     (tap-dance 250 (S-0 @m_parens_cursor))
+  td_k     (tap-dance 250 (S-] @m_braces_cursor))
+  td_l     (tap-dance 250 (rbrc @m_brackets_cursor))
+  td_comma (tap-dance 250 (S-, @m_angles_cursor))
+  td_dot   (tap-dance 250 (S-. @m_emmet_cursor))
+
+  ;; --- Index-finger Symbol Layer Activators ---
+  g_sym (tap-hold-release $quick-tap-ms $tapping-term g (layer-while-held sym))
+  h_sym (tap-hold-release $quick-tap-ms $tapping-term h (layer-while-held sym))
+
+  ;; --- Home Row Mods (left hand): Ctrl / Cmd / Alt / Shift ---
+  a_mod   (t! lhrm $tapping-term a    lctl)
+  s_mod   (t! lhrm $tapping-term s    lmet)
+  d_mod   (t! lhrm $tapping-term d    lalt)
+  f_mod   (t! lhrm $tapping-term f    lsft)
+
+  ;; --- Home Row Mods (right hand): Shift / Alt / Cmd / Ctrl ---
+  j_mod   (t! rhrm $tapping-term j    rsft)
+  k_mod   (t! rhrm $tapping-term k    ralt)
+  l_mod   (t! rhrm $tapping-term l    lmet)
+  sem_mod (t! rhrm $tapping-term scln rctl)
+
+  ;; --- Z: nomod-wrapped (used inside zfn) ---
+  z (t! nomod z)
+
+  ;; --- zfn: tap=z, hold=fn-base layer (secondary fn access from home area) ---
+  zfn (t! lhrm $tapping-term @z (layer-while-held fn-base))
+
+  ;; --- nomod-wrapped alpha keys (require-prior-idle behavior for all non-HRM keys) ---
+  q (t! nomod q)
+  w (t! nomod w)
+  e (t! nomod e)
+  r (t! nomod r)
+  t (t! nomod t)
+
+  y (t! nomod y)
+  u (t! nomod u)
+  i (t! nomod i)
+  o (t! nomod o)
+  p (t! nomod p)
+
+  g (t! nomod g)
+  h (t! nomod h)
+  ' (t! nomod ')
+
+  x (t! nomod x)
+  c (t! nomod c)
+  v (t! nomod v)
+  b (t! nomod b)
+
+  n (t! nomod n)
+  m (t! nomod m)
+  , (t! nomod ,)
+  . (t! nomod .)
+  / (t! nomod /)
+
+  ;; --- Nav layer shortcuts ---
+  opt_bspc (multi lalt bspc)
+  opt_del  (multi lalt del)
+  ctrl_q   (multi lctl q)
+  ctrl_w   (multi lctl w)
+  ctrl_z   (multi lctl z)
+  ctrl_x   (multi lctl x)
+  ctrl_c   (multi lctl c)
+  ctrl_v   (multi lctl v)
+  opt_dot  (multi lalt .)
+
+  ;; --- Fn layer toggles ---
+  fn_base (layer-toggle fn-base)
+  fn_byp  (layer-toggle fn-byp)
+  to_byp  (layer-switch bypass)
+  to_base (layer-switch base)
+
+  ;; --- Num layer macros ---
+
+)
+
+;; Combo definitions. Keep the human-readable inventory near the top of this
+;; file synchronized with this block.
+(defchordsv2
+  (esc bspc) lrld $combo-timeout all-released (base nomods nav num sym bypass fn-base fn-byp muggle)
+)
+
+;; -----------------------------------------------------------------------
+;; SOURCE KEYS: 60% Keybd Layout - 54 keys in a 14/14/13/12/1 layout
+;;
+;; Explicitly defining alphas and Caps Lock for positional tracking
+;; -----------------------------------------------------------------------
+(defsrc
+  esc
+  grv  1    2    3    4    5    6    7    8    9    0    -    =    bspc
+  tab  q    w    e    r    t    y    u    i    o    p    [    ]    \
+  caps a    s    d    f    g    h    j    k    l    scln '    ret
+  lsft z    x    c    v    b    n    m    ,    .    /    rsft
+  lctl lmet lalt           spc            ralt rctl
+)
+
+;; -----------------------------------------------------------------------
+;; LAYERS (Base Layer: HRM and Layer Activators)
+;; -----------------------------------------------------------------------
+(deflayer base
+  esc
+  grv        1      2      3      4      5      6      7      8      9       0       -    =   bspc
+  @tab_hyper @q     @w     @e     @r     @t     @y     @u     @i     @o      @p      [    ]   \
+  @caps_num  @a_mod @s_mod @d_mod @f_mod @g_sym @h_sym @j_mod @k_mod @l_mod @sem_mod @'   ret
+  lsft       @zfn   @x     @c     @v     @b     @n     @m     @,     @.      @/      rsft
+  lctl       lmet   lalt          @spc_nav      ralt   rctl
+)
+
+;; Temporarily active during fast typing to prevent accidental HRM hold activation.
+;; All HRM keys output their tap character here, except the shift keys (F=lsft, J=rsft)
+;; which stay active so you can capitalize while typing fast.
+(deflayer nomods
+  esc
+  grv      1     2     3    4    5    6    7    8    9     0     -     =     bspc
+  tab      q     w     e    r    t    y    u    i    o     p     [     ]     \
+  @caps_num a    s     d    @f_mod g      h      @j_mod k  l     scln  '     ret
+  lsft     z     x     c    v    b    n    m    ,    .     /     rsft
+  lctl lmet lalt           @spc_nav       ralt rctl
+)
+
+(deflayer nav
+  _
+  _    _       _       _       _      _    _     _     spc   _        _    _    _    _
+  _    @ctrl_q @ctrl_w _       _      spc  spc   del   up    bspc     _    _    _    _
+  _    lctl    lmet    lalt    lsft   spc  home  left  down  rght     end  _    _
+  _    @ctrl_z @ctrl_x @ctrl_c @ctrl_v _    pgup  pgdn  _     @opt_dot _    _
+  _    _    _              _              _    _
+)
+
+;; Numpad on QWERTY row.
+;; 💡 These are numpad keys, so the NumLock state is important to know
+;; Access: hold Caps Lock.
+(deflayer num
+  _
+  _    _     _     _    _     _     NumLock NumpadMultiply NumpadDivide NumpadAdd NumpadSubtract _ NumpadEqual _
+  _    _     _     _    _     _     _    kp7  kp8  kp9  NumpadAdd   _     _     _
+  _    lctl  lalt  lsft lmet  _     _    kp4  kp5  kp6  NumpadEnter bspc  _
+  _    _     _     caps    _     _  _    kp1  kp2  kp3  NumpadDecimal   _
+  _    _     _             kp0            _    _
+)
+
+;; Symbols layer (combined).
+;; Access: hold G or H.
+(deflayer sym
+  _
+  _         _     _     _     _       _        _      _     _           _     _  _  _  _
+  @backtick @excl @at   @hash @dollar @percent @caret @amp  @asterisk   -     =  _    _     S-\
+  @tilde    @sym_a @sym_s @sym_d @sym_f _     _     @td_j @td_k @td_l S-scln S-'   _
+  _         _     _     _     _     _     _     _     @td_comma  @td_dot S-/  _
+  _         _     _                 _                 _           _
+)
+
+;; No HRM, no layer tricks. Plain keyboard passthrough.
+;; Toggle via layer-switch muggle (add a shortcut or use kanata-tray to activate).
+(deflayer muggle
+  esc
+  grv  1     2     3    4    5    6    7    8    9     0     -     =     bspc
+  tab  q     w     e    r    t    y    u    i    o     p     [     ]     \
+  caps a     s     d    f    g    h    j    k    l     scln  '     ret
+  lsft z     x     c    v    b    n    m    ,    .     /     rsft
+  lctl lmet lalt           spc            ralt rctl
+)
+
+(deflayer bypass
+  esc
+  grv  1     2     3    4    5    6    7    8    9     0     -     =     bspc
+  tab  q     w     e    r    t    y    u    i    o     p     [     ]     \
+  caps a     s     d    f    g    h    j    k    l     scln  '     ret
+  lsft z     x     c    v    b    n    m    ,    .     /     rsft
+  lctl lmet lalt           spc            ralt rctl
+)
+
+(deflayer fn-base
+  _
+  _    _     _     _    _    _    _    _    _    _    _     _     _     _
+  _    _     _     _    _    _    _    _    _    _    _     _     _     @to_byp
+  _    _     _     _    _    _    _    _    _    _    _     _     _
+  _    _     _     _    _    _    _    _    _    _    _     _
+  _    _     _              _                   _     _
+)
+
+(deflayer fn-byp
+  _
+  _    _     _     _    _    _    _    _    _    _    _     _     _     _
+  _    _     _     _    _    _    _    _    _    _    _     _     _     @to_base
+  _    _     _     _    _    _    _    _    _    _    _     _     _
+  _    _     _     _    _    _    _    _    _    _    _     _
+  _    _     _              _                   _     _
+)

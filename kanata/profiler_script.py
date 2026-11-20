@@ -1,8 +1,6 @@
 import sys
 import termios
 import tty
-import time
-import select
 
 def get_key_durations():
     fd = sys.stdin.fileno()
